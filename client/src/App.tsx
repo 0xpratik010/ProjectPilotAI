@@ -3,6 +3,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/HomePage";
+import AnalyticsPage from "@/pages/AnalyticsPage";
+import SettingsPage from "@/pages/SettingsPage";
 import { useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import TopNav from "@/components/layout/TopNav";
@@ -25,6 +27,8 @@ function App() {
           
           <Switch>
             <Route path="/" component={HomePage} />
+            <Route path="/analytics" component={AnalyticsPage} />
+            <Route path="/settings" component={SettingsPage} />
             <Route component={NotFound} />
           </Switch>
         </div>
