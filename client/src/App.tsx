@@ -5,6 +5,10 @@ import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/HomePage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import SettingsPage from "@/pages/SettingsPage";
+import ProjectsPage from "@/pages/ProjectsPage";
+import TeamsPage from "@/pages/TeamsPage";
+import CalendarPage from "@/pages/CalendarPage";
+import ReportsPage from "@/pages/ReportsPage";
 import { useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import TopNav from "@/components/layout/TopNav";
@@ -29,6 +33,10 @@ function App() {
             <Route path="/" component={HomePage} />
             <Route path="/analytics" component={AnalyticsPage} />
             <Route path="/settings" component={SettingsPage} />
+            <Route path="/projects" component={ProjectsPage} />
+            <Route path="/teams" component={TeamsPage} />
+            <Route path="/calendar" component={CalendarPage} />
+            <Route path="/reports" component={ReportsPage} />
             <Route component={NotFound} />
           </Switch>
         </div>
