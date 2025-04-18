@@ -1,4 +1,4 @@
-import { Search, Bell, Menu, ChevronDown, LayoutDashboard, BarChart2, Settings, Grid, List, Filter } from "lucide-react";
+import { Search, Bell, Menu, ChevronDown, LayoutDashboard, BarChart2, Settings, Grid, List, Filter, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -10,7 +10,36 @@ interface TopNavProps {
 const TopNav = ({ toggleSidebar }: TopNavProps) => {
   const [location] = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    status: "",
+    owner: "",
+    dateRange: ""
+  });
   const isMobile = useIsMobile();
+  
+  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  const applyFilters = () => {
+    // Here you would implement the logic to filter data based on the selected filters
+    console.log("Applying filters:", filters);
+    // For demonstration purposes, we'll close the filter panel
+    setFiltersOpen(false);
+  };
+  
+  const resetFilters = () => {
+    setFilters({
+      status: "",
+      owner: "",
+      dateRange: ""
+    });
+  };
   
   return (
     <>
@@ -95,14 +124,97 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
                 <List size={20} />
               </button>
             </div>
-            <button className="flex items-center bg-white text-gray-700 border border-gray-300 rounded-md px-3 py-1 text-sm">
+            <button 
+              onClick={() => setFiltersOpen(!filtersOpen)} 
+              className="flex items-center bg-white text-gray-700 border border-gray-300 rounded-md px-3 py-1 text-sm hover:bg-gray-50"
+            >
               <Filter size={16} className="mr-1.5" />
-              <span className="hidden md:inline mr-1">Filters</span>
+              <span className="inline mr-1">Filters</span>
               <ChevronDown size={14} />
             </button>
           </div>
         </div>
       </div>
+      
+      {/* Filters Panel */}
+      {filtersOpen && (
+        <div className="bg-white border-b border-gray-200 py-3 px-4 space-y-3">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-medium">Filter Results</h3>
+            <button 
+              onClick={() => setFiltersOpen(false)} 
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+              <select 
+                name="status"
+                value={filters.status}
+                onChange={handleFilterChange}
+                className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50 text-sm"
+              >
+                <option value="">All Statuses</option>
+                <option value="Not Started">Not Started</option>
+                <option value="In Progress">In Progress</option>
+                <option value="At Risk">At Risk</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Owner</label>
+              <select 
+                name="owner"
+                value={filters.owner}
+                onChange={handleFilterChange}
+                className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50 text-sm"
+              >
+                <option value="">All Owners</option>
+                <option value="Sarah Chen">Sarah Chen</option>
+                <option value="Michael Johnson">Michael Johnson</option>
+                <option value="Robert Smith">Robert Smith</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
+              <select 
+                name="dateRange"
+                value={filters.dateRange}
+                onChange={handleFilterChange}
+                className="w-full border-gray-300 rounded-md shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50 text-sm"
+              >
+                <option value="">Any Time</option>
+                <option value="today">Today</option>
+                <option value="this_week">This Week</option>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="custom">Custom Range</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-2 pt-2">
+            <button 
+              onClick={resetFilters}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Reset
+            </button>
+            <button 
+              onClick={applyFilters}
+              className="px-3 py-1 bg-primary-500 text-white rounded-md text-sm hover:bg-primary-600"
+            >
+              Apply Filters
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 };
