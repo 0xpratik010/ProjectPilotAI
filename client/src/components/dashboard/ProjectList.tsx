@@ -45,12 +45,12 @@ const ProjectList = ({ onSelect, onNewProject }: ProjectListProps) => {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">Active Projects</h2>
-        <button 
-          onClick={onNewProject}
+        <a 
+          href="/projects"
           className="text-primary-500 hover:text-primary-600 text-sm font-medium"
         >
           View All
-        </button>
+        </a>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
