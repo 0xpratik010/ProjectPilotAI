@@ -7,7 +7,7 @@ import { Project } from "@shared/schema";
 
 const ProjectsPage = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(window.location.search.includes('action=create'));
   
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ['/api/projects'],

@@ -1,6 +1,6 @@
-import { Search, Bell, Menu, ChevronDown, LayoutDashboard, BarChart2, Settings, Grid, List, Filter, X } from "lucide-react";
+import { Search, Bell, Menu, ChevronDown, LayoutDashboard, BarChart2, Settings, Grid, List, Filter, X, PlusCircle } from "lucide-react";
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useNavigate } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface TopNavProps {
@@ -8,7 +8,7 @@ interface TopNavProps {
 }
 
 const TopNav = ({ toggleSidebar }: TopNavProps) => {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState({
@@ -17,7 +17,7 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
     dateRange: ""
   });
   const isMobile = useIsMobile();
-  
+
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFilters(prev => ({
@@ -25,14 +25,14 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
       [name]: value
     }));
   };
-  
+
   const applyFilters = () => {
     // Here you would implement the logic to filter data based on the selected filters
     console.log("Applying filters:", filters);
     // For demonstration purposes, we'll close the filter panel
     setFiltersOpen(false);
   };
-  
+
   const resetFilters = () => {
     setFilters({
       status: "",
@@ -40,7 +40,11 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
       dateRange: ""
     });
   };
-  
+
+  const handleCreateProject = () => {
+    navigate('/projects?action=create');
+  };
+
   return (
     <>
       {/* Top Navigation */}
@@ -54,11 +58,11 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
               <Menu size={24} />
             </button>
           </div>
-          
+
           <div className="flex md:hidden ml-2">
             <h1 className="text-lg font-bold text-primary-600">Project Tracker</h1>
           </div>
-          
+
           <div className={`relative w-full max-w-lg ${searchOpen ? 'block' : 'hidden'} md:block`}>
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search size={18} className="text-gray-400" />
@@ -69,7 +73,7 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
               placeholder="Search projects, tasks, milestones..."
             />
           </div>
-          
+
           <div className="flex items-center space-x-3">
             <button 
               className="p-1.5 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-full md:hidden"
@@ -113,7 +117,7 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
               </a>
             </Link>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <div className="hidden sm:flex items-center space-x-2">
               <span className="text-sm text-gray-500">View:</span>
@@ -135,7 +139,7 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
           </div>
         </div>
       </div>
-      
+
       {/* Filters Panel */}
       {filtersOpen && (
         <div className="bg-white border-b border-gray-200 py-3 px-4 space-y-3">
@@ -148,7 +152,7 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
               <X size={16} />
             </button>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
@@ -165,7 +169,7 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
                 <option value="Completed">Completed</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Owner</label>
               <select 
@@ -180,7 +184,7 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
                 <option value="Robert Smith">Robert Smith</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
               <select 
@@ -198,7 +202,7 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
               </select>
             </div>
           </div>
-          
+
           <div className="flex justify-end space-x-2 pt-2">
             <button 
               onClick={resetFilters}
