@@ -11,28 +11,37 @@ const Dashboard = () => {
   // Manage view state
   const [view, setView] = useState<"dashboard" | "project-details" | "project-form">("dashboard");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  
+
   // Handle project selection
   const handleProjectSelect = (projectId: number) => {
     setSelectedProjectId(projectId);
     setView("project-details");
   };
-  
+
   // Handle new project button
   const handleNewProject = () => {
     setView("project-form");
   };
-  
+
   // Handle back to dashboard
   const handleBackToDashboard = () => {
     setView("dashboard");
     setSelectedProjectId(null);
   };
-  
+
   return (
     <main className="flex-1 p-4 md:p-6 bg-gray-50 overflow-y-auto">
       {view === "dashboard" && (
         <div className="space-y-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">Dashboard Overview</h2>
+            <button 
+              onClick={handleNewProject}
+              className="bg-primary-500 hover:bg-primary-600 text-white py-2 px-4 rounded-md text-sm font-medium inline-flex items-center"
+            >
+              <span className="mr-2">+</span> Create New Project
+            </button>
+          </div>
           <Stats />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <NaturalLanguageUpdate />
@@ -42,14 +51,14 @@ const Dashboard = () => {
           <MilestoneList />
         </div>
       )}
-      
+
       {view === "project-details" && selectedProjectId && (
         <ProjectDetails 
           projectId={selectedProjectId} 
           onBack={handleBackToDashboard} 
         />
       )}
-      
+
       {view === "project-form" && (
         <ProjectForm onCancel={handleBackToDashboard} onCreate={handleBackToDashboard} />
       )}
