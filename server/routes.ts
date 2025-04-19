@@ -2,6 +2,7 @@ import { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { processNaturalLanguageUpdate, generateWeeklySummary, getAssistantResponse } from "./ai";
+import { generateAndSendReport } from "./reports";
 import { insertProjectSchema, insertMilestoneSchema, insertSubtaskSchema, insertIssueSchema, insertUpdateSchema, insertChatMessageSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -395,6 +396,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating weekly summary:", error);
       res.status(500).json({ message: "Failed to generate weekly summary" });
+    }
+  });
+  
+  // Generate and send report
+  app.post("/api/reports/generate", async (req: Request, res: Response) => {
+    try {
+      const reportSchema = z.object({
+        projectId: z.number(),
+        reportDate: z.string(),
+        reportType: z.enum(['weekly', 'milestone', 'status']),
+        recipients: z.array(z.string().email())
+      });
+      
+      const data = reportSchema.parse(req.body);
+      
+      const result = await generateAndSendReport({
+        projectId: data.projectId,
+        reportDate: data.reportDate,
+        reportType: data.reportType,
+        recipients: data.recipients
+      });
+      
+      if (result.success) {
+        res.status(200).json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error) {
+      console.error("Error generating report:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Validation error", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "Failed to generate report" 
+      });
     }
   });
 
