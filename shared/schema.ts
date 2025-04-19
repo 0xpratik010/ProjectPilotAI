@@ -52,7 +52,7 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Relation definitions will be added later
+
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
@@ -137,7 +137,7 @@ export const insertUpdateSchema = createInsertSchema(updates).omit({
 // Chat
 export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
-  projectId: integer("project_id"),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   role: text("role").notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -147,6 +147,50 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
   id: true,
   createdAt: true,
 });
+
+// Relation definitions
+export const projectsRelations = relations(projects, ({ many }) => ({
+  milestones: many(milestones),
+  issues: many(issues),
+  updates: many(updates),
+  chatMessages: many(chatMessages)
+}));
+
+export const milestonesRelations = relations(milestones, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [milestones.projectId],
+    references: [projects.id]
+  }),
+  subtasks: many(subtasks)
+}));
+
+export const subtasksRelations = relations(subtasks, ({ one }) => ({
+  milestone: one(milestones, {
+    fields: [subtasks.milestoneId],
+    references: [milestones.id]
+  })
+}));
+
+export const issuesRelations = relations(issues, ({ one }) => ({
+  project: one(projects, {
+    fields: [issues.projectId],
+    references: [projects.id]
+  })
+}));
+
+export const updatesRelations = relations(updates, ({ one }) => ({
+  project: one(projects, {
+    fields: [updates.projectId],
+    references: [projects.id]
+  })
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  project: one(projects, {
+    fields: [chatMessages.projectId],
+    references: [projects.id]
+  })
+}));
 
 // Types
 export type Project = typeof projects.$inferSelect;
