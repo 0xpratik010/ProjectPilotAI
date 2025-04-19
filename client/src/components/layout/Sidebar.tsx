@@ -19,7 +19,7 @@ interface SidebarProps {
 
 const Sidebar = ({ open, setOpen }: SidebarProps) => {
   const [location] = useLocation();
-  
+
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
   });
@@ -33,7 +33,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
           onClick={() => setOpen(false)}
         />
       )}
-      
+
       {/* Sidebar */}
       <div 
         className={`${
@@ -43,7 +43,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
         <div className="p-4 border-b border-gray-200">
           <h1 className="text-xl font-bold text-primary-600">Project Tracker</h1>
         </div>
-        
+
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <div className="mb-6">
             <button 
@@ -87,33 +87,33 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                 <Calendar className="mr-3" size={20} /> Calendar
               </a>
             </Link>
-            <Link href="/reports">
-              <a className={`flex items-center py-2 px-3 rounded-md ${
+            <Link href="/reports" className={`flex items-center py-2 px-3 rounded-md ${
                 location.includes("/reports") ? "bg-primary-50 text-primary-600 font-medium" : "text-gray-700 hover:bg-gray-100"
               }`}>
-                <FileBarChart className="mr-3" size={20} /> Reports
-              </a>
+              <FileBarChart className="mr-3" size={20} /> Reports
             </Link>
           </div>
-          
+
           <div className="mt-6">
             <p className="text-xs uppercase font-bold text-gray-500 mb-2 tracking-wider">Recent Projects</p>
             <div className="space-y-1">
               {projects.slice(0, 3).map(project => (
-                <Link key={project.id} href={`/projects/${project.id}`}>
-                  <a className="block py-2 px-3 rounded-md text-gray-700 hover:bg-gray-100">
-                    {project.name}
-                  </a>
+                <Link 
+                  key={project.id} 
+                  href={`/projects/${project.id}`}
+                  className="block py-2 px-3 rounded-md text-gray-700 hover:bg-gray-100"
+                >
+                  {project.name}
                 </Link>
               ))}
-              
+
               {projects.length === 0 && (
                 <p className="text-sm text-gray-500 py-2 px-3">No projects yet</p>
               )}
             </div>
           </div>
         </nav>
-        
+
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center">
             <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 mr-2">
