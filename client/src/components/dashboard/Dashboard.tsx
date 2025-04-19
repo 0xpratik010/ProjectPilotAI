@@ -35,12 +35,6 @@ const Dashboard = () => {
         <div className="space-y-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold">Dashboard Overview</h2>
-            <button 
-              onClick={handleNewProject}
-              className="bg-primary-500 hover:bg-primary-600 text-white py-2 px-4 rounded-md text-sm font-medium inline-flex items-center"
-            >
-              <span className="mr-2">+</span> Create New Project
-            </button>
           </div>
           <Stats />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

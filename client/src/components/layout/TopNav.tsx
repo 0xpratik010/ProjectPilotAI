@@ -81,6 +81,12 @@ const TopNav = ({ toggleSidebar }: TopNavProps) => {
             >
               <Search size={20} />
             </button>
+            <button
+              onClick={() => navigate('/projects?action=create')}
+              className="bg-primary-500 hover:bg-primary-600 text-white py-2 px-4 rounded-md text-sm font-medium inline-flex items-center mr-3"
+            >
+              <PlusCircle size={16} className="mr-2" /> Create Project
+            </button>
             <button className="p-1.5 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-full">
               <Bell size={20} />
             </button>
