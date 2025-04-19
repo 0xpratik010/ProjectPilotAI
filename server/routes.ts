@@ -390,7 +390,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const issues = await storage.getIssues(projectId);
       const updates = await storage.getUpdates(projectId);
       
-      const summary = await generateWeeklySummary(project, milestones, issues, updates);
+      const subtasks = [];
+      for (const milestone of milestones) {
+        const milestoneSubtasks = await storage.getSubtasks(milestone.id);
+        subtasks.push(...milestoneSubtasks);
+      }
+      
+      const summary = await generateWeeklySummary(project, milestones, subtasks, issues, updates);
       
       res.json({ summary });
     } catch (error) {
