@@ -6,13 +6,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, X } from "lucide-react";
-import { format } from "date-fns";
+import { format, addWeeks } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { InsertProject } from "@shared/schema";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ProjectFormProps {
   onCancel: () => void;
@@ -40,10 +47,22 @@ const ProjectForm = ({ onCancel, onCreate }: ProjectFormProps) => {
   });
   
   const [activeSection, setActiveSection] = useState("basic");
+  const [durationInWeeks, setDurationInWeeks] = useState<number>(12);
+  
+  useEffect(() => {
+    if (formData.startDate) {
+      const calculatedEndDate = addWeeks(new Date(formData.startDate), durationInWeeks);
+      setFormData(prev => ({ ...prev, endDate: calculatedEndDate }));
+    }
+  }, [formData.startDate, durationInWeeks]);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleDurationChange = (value: string) => {
+    setDurationInWeeks(parseInt(value));
   };
   
   const { mutate, isPending } = useMutation({
@@ -338,8 +357,89 @@ const ProjectForm = ({ onCancel, onCreate }: ProjectFormProps) => {
                     </p>
                   </div>
                   
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="startDate">Project Start Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            id="startDate"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !formData.startDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.startDate ? (
+                              format(new Date(formData.startDate), "PPP")
+                            ) : (
+                              <span>Select start date</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={formData.startDate ? new Date(formData.startDate) : undefined}
+                            onSelect={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="duration">Project Duration (Weeks)</Label>
+                      <Select value={durationInWeeks.toString()} onValueChange={handleDurationChange}>
+                        <SelectTrigger id="duration" className="w-full">
+                          <SelectValue placeholder="Select duration" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52].map(weeks => (
+                            <SelectItem key={weeks} value={weeks.toString()}>
+                              {weeks} week{weeks !== 1 ? 's' : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-md font-medium text-gray-700">Timeline Summary</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Project Start Date</p>
+                        <p className="font-medium">
+                          {formData.startDate ? format(new Date(formData.startDate), "MMMM d, yyyy") : "Not set"}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Project End Date (Calculated)</p>
+                        <p className="font-medium">
+                          {formData.endDate ? format(new Date(formData.endDate), "MMMM d, yyyy") : "Not set"}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Project Duration</p>
+                        <p className="font-medium">{durationInWeeks} weeks</p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Milestones</p>
+                        <p className="font-medium">9 standard phases</p>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="border border-gray-200 rounded-md p-4">
-                    <h3 className="text-md font-medium text-gray-700 mb-3">Sample Milestones (Preview)</h3>
+                    <h3 className="text-md font-medium text-gray-700 mb-3">Standard Milestones</h3>
                     
                     <ul className="space-y-2 text-sm">
                       <li className="flex items-center text-gray-600">
