@@ -34,7 +34,15 @@ const ProjectsPage = () => {
   
   return (
     <div className="container mx-auto p-4 md:p-6">
-      <h1 className="text-2xl font-bold mb-6">Projects</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Projects</h1>
+        <button 
+          onClick={handleNewProject}
+          className="bg-primary-500 hover:bg-primary-600 text-white py-2 px-4 rounded-md text-sm font-medium"
+        >
+          Create New Project
+        </button>
+      </div>
       
       {selectedProjectId ? (
         <ProjectDetails 
