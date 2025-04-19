@@ -1,6 +1,35 @@
-import { pgTable, text, serial, integer, boolean, varchar, date, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, varchar, date, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
+
+// Define enums for statuses
+export const projectStatusEnum = pgEnum('project_status', [
+  'Not Started', 
+  'In Progress', 
+  'At Risk', 
+  'Completed'
+]);
+
+export const milestoneStatusEnum = pgEnum('milestone_status', [
+  'Not Started', 
+  'In Progress', 
+  'Completed'
+]);
+
+export const issueStatusEnum = pgEnum('issue_status', [
+  'Open', 
+  'In Progress', 
+  'Resolved', 
+  'Closed'
+]);
+
+export const issuePriorityEnum = pgEnum('issue_priority', [
+  'Low',
+  'Medium',
+  'High',
+  'Critical'
+]);
 
 // Project
 export const projects = pgTable("projects", {
@@ -23,6 +52,8 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Relation definitions will be added later
+
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
   createdAt: true,
@@ -31,7 +62,7 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
 // Milestones
 export const milestones = pgTable("milestones", {
   id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull(),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
   description: text("description"),
   status: text("status").default("Not Started").notNull(),
@@ -50,7 +81,7 @@ export const insertMilestoneSchema = createInsertSchema(milestones).omit({
 // Subtasks
 export const subtasks = pgTable("subtasks", {
   id: serial("id").primaryKey(),
-  milestoneId: integer("milestone_id").notNull(),
+  milestoneId: integer("milestone_id").notNull().references(() => milestones.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
   description: text("description"),
   status: text("status").default("Not Started").notNull(),
@@ -70,7 +101,7 @@ export const insertSubtaskSchema = createInsertSchema(subtasks).omit({
 // Issues
 export const issues = pgTable("issues", {
   id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull(),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
   description: text("description"),
   status: text("status").default("Open").notNull(),
@@ -90,7 +121,7 @@ export const insertIssueSchema = createInsertSchema(issues).omit({
 // Updates
 export const updates = pgTable("updates", {
   id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull(),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
   content: text("content").notNull(),
   processedContent: jsonb("processed_content"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
