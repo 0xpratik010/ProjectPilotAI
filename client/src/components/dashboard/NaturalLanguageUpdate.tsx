@@ -53,14 +53,14 @@ const NaturalLanguageUpdate = () => {
   };
   
   return (
-    <Card>
+    <Card className="dark:bg-card dark:border-gray-700 dark:shadow-md dark:shadow-gray-900/10">
       <CardHeader>
-        <CardTitle className="text-gray-700 text-base">Quick Update</CardTitle>
+        <CardTitle className="text-gray-700 dark:text-gray-200 text-base">Quick Update</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="relative">
           <Textarea
-            className="w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 p-3 text-sm bg-gray-50 min-h-[120px]"
+            className="w-full rounded-lg border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary focus:border-primary-500 dark:focus:border-primary p-3 text-sm bg-gray-50 dark:bg-gray-800 dark:text-gray-200 min-h-[120px]"
             placeholder="Enter a natural language update (e.g., 'The CRM Migration project is delayed by 2 days due to API integration issues. SIT phase will be affected.')"
             value={updateText}
             onChange={(e) => setUpdateText(e.target.value)}

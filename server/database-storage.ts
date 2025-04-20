@@ -15,11 +15,20 @@ export class DatabaseStorage implements IStorage {
   
   // Project methods
   async getProjects(): Promise<Project[]> {
-    return await db.select().from(projects);
+    return await db
+      .select()
+      .from(projects)
+      .where(eq(projects.isDeleted, false));
   }
   
   async getProject(id: number): Promise<Project | undefined> {
-    const result = await db.select().from(projects).where(eq(projects.id, id));
+    const result = await db
+      .select()
+      .from(projects)
+      .where(and(
+        eq(projects.id, id),
+        eq(projects.isDeleted, false)
+      ));
     return result[0];
   }
   
@@ -47,6 +56,94 @@ export class DatabaseStorage implements IStorage {
     return !!result;
   }
   
+  async updateExistingProjectsWithDefaults() {
+    // First, update all NULL values to defaults
+    await db.execute(sql`
+      UPDATE projects 
+      SET 
+        start_date = CURRENT_DATE,
+        end_date = CURRENT_DATE + INTERVAL '12 weeks',
+        pm_name = '',
+        dl_name = '',
+        ba_name = '',
+        tl_name = '',
+        ui_lead_name = '',
+        db_lead_name = '',
+        qa_lead_name = '',
+        email = '',
+        current_phase = 'Requirement Gathering',
+        progress = 0,
+        status = 'Not Started'
+      WHERE start_date IS NULL 
+         OR end_date IS NULL 
+         OR pm_name IS NULL 
+         OR dl_name IS NULL 
+         OR ba_name IS NULL 
+         OR tl_name IS NULL 
+         OR ui_lead_name IS NULL 
+         OR db_lead_name IS NULL 
+         OR qa_lead_name IS NULL 
+         OR email IS NULL
+         OR current_phase IS NULL
+         OR progress IS NULL
+         OR status IS NULL;
+    `);
+  }
+
+  async getProjectStatus(projectId: number) {
+    const project = await db.query.projects.findFirst({
+      where: eq(projects.id, projectId),
+      with: {
+        milestones: {
+          with: {
+            subtasks: true
+          }
+        },
+        issues: true
+      }
+    });
+
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    return {
+      project: {
+        name: project.name,
+        status: project.status,
+        progress: project.progress,
+        currentPhase: project.currentPhase
+      },
+      milestones: project.milestones.map(m => ({
+        name: m.name,
+        status: m.status,
+        subtasks: m.subtasks.length,
+        completedSubtasks: m.subtasks.filter(s => s.status === 'Completed').length
+      })),
+      openIssues: project.issues.filter(i => i.status === 'Open').length,
+      criticalIssues: project.issues.filter(i => i.priority === 'Critical' && i.status === 'Open').length
+    };
+  }
+
+  async getProjectUpdates(projectId: number) {
+    const updatesResult = await db.query.updates.findMany({
+      where: eq(updates.projectId, projectId),
+      orderBy: [desc(updates.createdAt)],
+      limit: 5
+    });
+
+    return updatesResult;
+  }
+
+  async getProjectIssues(projectId: number) {
+    const issuesResult = await db.query.issues.findMany({
+      where: eq(issues.projectId, projectId),
+      orderBy: [desc(issues.createdAt)]
+    });
+
+    return issuesResult;
+  }
+
   // Milestone methods
   async getMilestones(projectId: number): Promise<Milestone[]> {
     return await db
@@ -89,27 +186,43 @@ export class DatabaseStorage implements IStorage {
       .where(eq(subtasks.milestoneId, milestoneId))
       .orderBy(subtasks.order);
   }
-  
+
   async getSubtask(id: number): Promise<Subtask | undefined> {
     const result = await db.select().from(subtasks).where(eq(subtasks.id, id));
     return result[0];
   }
-  
+
   async createSubtask(subtask: InsertSubtask): Promise<Subtask> {
-    const [result] = await db.insert(subtasks).values(subtask).returning();
-    return result;
+    console.log("Creating subtask with data:", subtask);
+    try {
+      const [result] = await db.insert(subtasks).values({
+        milestoneId: subtask.milestoneId,
+        name: subtask.name,
+        description: subtask.description || null,
+        status: subtask.status || "Not Started",
+        startDate: subtask.startDate || null,
+        endDate: subtask.endDate || null,
+        owner: subtask.owner || null,
+        emailToSend: subtask.emailToSend || null,
+        order: subtask.order
+      }).returning();
+      console.log("Subtask created successfully:", result);
+      return result;
+    } catch (error) {
+      console.error("Error creating subtask:", error);
+      throw error;
+    }
   }
-  
+
   async updateSubtask(id: number, subtask: Partial<Subtask>): Promise<Subtask | undefined> {
     const [result] = await db
       .update(subtasks)
       .set(subtask)
       .where(eq(subtasks.id, id))
       .returning();
-    
     return result;
   }
-  
+
   async deleteSubtask(id: number): Promise<boolean> {
     const result = await db.delete(subtasks).where(eq(subtasks.id, id));
     return !!result;

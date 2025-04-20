@@ -12,6 +12,7 @@ import ReportsPage from "@/pages/ReportsPage";
 import { useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import TopNav from "@/components/layout/TopNav";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -21,27 +22,29 @@ function App() {
   };
   
   return (
-    <TooltipProvider>
-      <Toaster />
-      <div className="min-h-screen flex">
-        <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
-        
-        <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
-          <TopNav toggleSidebar={toggleSidebar} />
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <div className="min-h-screen flex">
+          <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
           
-          <Switch>
-            <Route path="/" component={HomePage} />
-            <Route path="/analytics" component={AnalyticsPage} />
-            <Route path="/settings" component={SettingsPage} />
-            <Route path="/projects" component={ProjectsPage} />
-            <Route path="/teams" component={TeamsPage} />
-            <Route path="/calendar" component={CalendarPage} />
-            <Route path="/reports" component={ReportsPage} />
-            <Route component={NotFound} />
-          </Switch>
+          <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+            <TopNav toggleSidebar={toggleSidebar} />
+            
+            <Switch>
+              <Route path="/" component={HomePage} />
+              <Route path="/analytics" component={AnalyticsPage} />
+              <Route path="/settings" component={SettingsPage} />
+              <Route path="/projects" component={ProjectsPage} />
+              <Route path="/teams" component={TeamsPage} />
+              <Route path="/calendar" component={CalendarPage} />
+              <Route path="/reports" component={ReportsPage} />
+              <Route component={NotFound} />
+            </Switch>
+          </div>
         </div>
-      </div>
-    </TooltipProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   );
 }
 

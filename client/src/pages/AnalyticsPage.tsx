@@ -1,7 +1,32 @@
 import { BarChart3, LineChart, PieChart, TrendingUp, Users, Calendar } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { Project } from "@shared/schema";
+import { Project as BaseProject } from "@shared/schema";
+import {
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  LineChart as RechartsLineChart,
+  Line,
+  ResponsiveContainer
+} from 'recharts';
+
+interface ProjectWithDates extends Omit<BaseProject, 'timelineConfig'> {
+  plannedDuration?: number;
+  actualDuration?: number;
+  milestones?: Array<{ status: string }>;
+  timelineConfig?: {
+    milestones: Record<string, any>;
+  };
+}
+
 
 const AnalyticsPage = () => {
   const { data: projects = [] } = useQuery<Project[]>({
@@ -79,28 +104,132 @@ const AnalyticsPage = () => {
       
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Project Progress Bar Chart */}
         <Card>
           <CardContent className="p-4">
             <h2 className="text-lg font-semibold mb-4">Project Progress</h2>
-            <div className="h-64 flex items-center justify-center">
-              <div className="flex flex-col items-center justify-center text-gray-500">
-                <BarChart3 size={48} className="mb-3 text-gray-400" />
-                <p>Project progress chart will be displayed here</p>
-                <p className="text-sm">Showing progress data across all active projects</p>
-              </div>
+            <div className="h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsBarChart
+                  data={projects.map((project: any) => ({
+                    name: project.name,
+                    progress: project.progress || 0
+                  }))}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="progress" name="Progress (%)" fill="#4f46e5" />
+                </RechartsBarChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
-        
+        {/* Timeline Trends Line Chart */}
         <Card>
           <CardContent className="p-4">
             <h2 className="text-lg font-semibold mb-4">Timeline Trends</h2>
-            <div className="h-64 flex items-center justify-center">
-              <div className="flex flex-col items-center justify-center text-gray-500">
-                <LineChart size={48} className="mb-3 text-gray-400" />
-                <p>Project timeline trends will be displayed here</p>
-                <p className="text-sm">Showing how projects are tracking against deadlines</p>
-              </div>
+            <div className="h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsLineChart
+                  data={projects.map((project: any) => {
+                    let plannedProgress = 0;
+                    if (project.startDate && project.endDate) {
+                      plannedProgress = (new Date().getTime() - new Date(project.startDate).getTime()) /
+                        (new Date(project.endDate).getTime() - new Date(project.startDate).getTime()) * 100;
+                      plannedProgress = Math.min(Math.max(plannedProgress, 0), 100);
+                    }
+                    return {
+                      name: project.name,
+                      actual: project.progress || 0,
+                      planned: plannedProgress
+                    };
+                  })}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="actual" name="Actual Progress" stroke="#4f46e5" />
+                  <Line type="monotone" dataKey="planned" name="Planned Progress" stroke="#10b981" strokeDasharray="5 5" />
+                </RechartsLineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      {/* Status Distribution and Milestone Completion Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Project Status Pie Chart */}
+        <Card>
+          <CardContent className="p-4">
+            <h2 className="text-lg font-semibold mb-4">Project Status Distribution</h2>
+            <div className="h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <Pie
+                    data={Object.entries(projects.reduce((acc: any, project: any) => {
+                      acc[project.status] = (acc[project.status] || 0) + 1;
+                      return acc;
+                    }, {})).map(([status, count]) => ({ name: status, value: count }))}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={150}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {[
+                      '#4f46e5',
+                      '#10b981',
+                      '#f59e0b',
+                      '#ef4444',
+                      '#8b5cf6'
+                    ].map((color, index) => (
+                      <Cell key={`cell-${index}`} fill={color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+        {/* Milestone Completion Bar Chart */}
+        <Card>
+          <CardContent className="p-4">
+            <h2 className="text-lg font-semibold mb-4">Milestone Completion</h2>
+            <div className="h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsBarChart
+                  data={projects.map((project: any) => {
+                    const milestones = project.timelineConfig?.milestones || {};
+                    const totalMilestones = Object.keys(milestones).length;
+                    const completedMilestones = project.progress ? Math.floor((project.progress / 100) * totalMilestones) : 0;
+                    return {
+                      name: project.name,
+                      completed: completedMilestones,
+                      remaining: totalMilestones - completedMilestones
+                    };
+                  })}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="completed" name="Completed Milestones" stackId="a" fill="#4f46e5" />
+                  <Bar dataKey="remaining" name="Remaining Milestones" stackId="a" fill="#e5e7eb" />
+                </RechartsBarChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>

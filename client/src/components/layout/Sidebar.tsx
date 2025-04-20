@@ -29,7 +29,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
       {/* Mobile overlay */}
       {open && (
         <div 
-          className="fixed inset-0 bg-gray-800 bg-opacity-50 z-40 md:hidden"
+          className="fixed inset-0 bg-gray-800 bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-70 z-40 md:hidden"
           onClick={() => setOpen(false)}
         />
       )}
@@ -38,9 +38,9 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
       <div 
         className={`${
           open ? "translate-x-0" : "-translate-x-full"
-        } fixed md:relative md:translate-x-0 z-50 w-64 bg-white border-r border-gray-200 h-screen transition-transform duration-200 ease-in-out`}
+        } fixed md:relative md:translate-x-0 z-50 w-64 bg-white dark:bg-card border-r border-gray-200 dark:border-gray-700 h-screen transition-transform duration-200 ease-in-out`}
       >
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <h1 className="text-xl font-bold text-primary-600">Project Tracker</h1>
         </div>
 
@@ -58,72 +58,82 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
           </div>
 
           <div>
-            <p className="text-xs uppercase font-bold text-gray-500 mb-2 tracking-wider">Main Menu</p>
+            <p className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-2 tracking-wider">Main Menu</p>
             <Link href="/">
               <a className={`flex items-center py-2 px-3 rounded-md ${
-                location === "/" ? "bg-primary-50 text-primary-600 font-medium" : "text-gray-700 hover:bg-gray-100"
+                location === "/" 
+                  ? "bg-primary-50 dark:bg-secondary text-primary-600 dark:text-primary font-medium" 
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}>
                 <LayoutDashboard className="mr-3" size={20} /> Dashboard
               </a>
             </Link>
             <Link href="/projects">
               <a className={`flex items-center py-2 px-3 rounded-md ${
-                location.includes("/projects") ? "bg-primary-50 text-primary-600 font-medium" : "text-gray-700 hover:bg-gray-100"
+                location.includes("/projects") 
+                  ? "bg-primary-50 dark:bg-secondary text-primary-600 dark:text-primary font-medium" 
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}>
                 <CheckSquare className="mr-3" size={20} /> Projects
               </a>
             </Link>
             <Link href="/teams">
               <a className={`flex items-center py-2 px-3 rounded-md ${
-                location.includes("/teams") ? "bg-primary-50 text-primary-600 font-medium" : "text-gray-700 hover:bg-gray-100"
+                location.includes("/teams") 
+                  ? "bg-primary-50 dark:bg-secondary text-primary-600 dark:text-primary font-medium" 
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}>
                 <Users className="mr-3" size={20} /> Teams
               </a>
             </Link>
             <Link href="/calendar">
               <a className={`flex items-center py-2 px-3 rounded-md ${
-                location.includes("/calendar") ? "bg-primary-50 text-primary-600 font-medium" : "text-gray-700 hover:bg-gray-100"
+                location.includes("/calendar") 
+                  ? "bg-primary-50 dark:bg-secondary text-primary-600 dark:text-primary font-medium" 
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}>
                 <Calendar className="mr-3" size={20} /> Calendar
               </a>
             </Link>
             <Link href="/reports" className={`flex items-center py-2 px-3 rounded-md ${
-                location.includes("/reports") ? "bg-primary-50 text-primary-600 font-medium" : "text-gray-700 hover:bg-gray-100"
+                location.includes("/reports") 
+                  ? "bg-primary-50 dark:bg-secondary text-primary-600 dark:text-primary font-medium" 
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}>
               <FileBarChart className="mr-3" size={20} /> Reports
             </Link>
           </div>
 
           <div className="mt-6">
-            <p className="text-xs uppercase font-bold text-gray-500 mb-2 tracking-wider">Recent Projects</p>
+            <p className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-2 tracking-wider">Recent Projects</p>
             <div className="space-y-1">
               {projects.slice(0, 3).map(project => (
                 <Link 
                   key={project.id} 
                   href={`/projects/${project.id}`}
-                  className="block py-2 px-3 rounded-md text-gray-700 hover:bg-gray-100"
+                  className="block py-2 px-3 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
                   {project.name}
                 </Link>
               ))}
 
               {projects.length === 0 && (
-                <p className="text-sm text-gray-500 py-2 px-3">No projects yet</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 py-2 px-3">No projects yet</p>
               )}
             </div>
           </div>
         </nav>
 
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 mr-2">
+            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 mr-2">
               <span className="text-xs font-medium">JD</span>
             </div>
             <div>
-              <p className="text-sm font-medium">John Doe</p>
-              <p className="text-xs text-gray-500">Project Manager</p>
+              <p className="text-sm font-medium dark:text-gray-300">John Doe</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Project Manager</p>
             </div>
-            <button className="ml-auto text-gray-400 hover:text-gray-500">
+            <button className="ml-auto text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400">
               <Settings size={16} />
             </button>
           </div>

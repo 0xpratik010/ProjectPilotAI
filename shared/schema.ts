@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, varchar, date, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -40,23 +41,20 @@ export const projects = pgTable("projects", {
   description: text("description"),
   status: text("status").default("Not Started").notNull(),
   progress: integer("progress").default(0),
-  startDate: date("start_date"),
-  endDate: date("end_date"),
-  pmName: text("pm_name"),
-  dlName: text("dl_name"),
-  baName: text("ba_name"),
-  tlName: text("tl_name"),
-  uiLeadName: text("ui_lead_name"),
-  dbLeadName: text("db_lead_name"),
-  qaLeadName: text("qa_lead_name"),
+  currentPhase: text("current_phase").default("Requirement Gathering").notNull(),
+  startDate: date("start_date").default(sql`CURRENT_DATE`).notNull(),
+  endDate: date("end_date").default(sql`CURRENT_DATE + INTERVAL '12 weeks'`).notNull(),
+  pmName: text("pm_name").default("").notNull(),
+  dlName: text("dl_name").default("").notNull(),
+  baName: text("ba_name").default("").notNull(),
+  tlName: text("tl_name").default("").notNull(),
+  uiLeadName: text("ui_lead_name").default("").notNull(),
+  dbLeadName: text("db_lead_name").default("").notNull(),
+  qaLeadName: text("qa_lead_name").default("").notNull(),
+  email: text("email").default("").notNull(),
+  isDeleted: boolean("is_deleted").default(false).notNull(),
+  timelineConfig: jsonb("timeline_config"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-
-
-export const insertProjectSchema = createInsertSchema(projects).omit({
-  id: true,
-  createdAt: true,
 });
 
 // Milestones
@@ -70,6 +68,7 @@ export const milestones = pgTable("milestones", {
   endDate: date("end_date"),
   owner: text("owner"),
   order: integer("order").notNull(),
+  durationInWeeks: integer("duration_in_weeks"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -191,6 +190,11 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
     references: [projects.id]
   })
 }));
+
+export const insertProjectSchema = createInsertSchema(projects).omit({
+  id: true,
+  createdAt: true,
+});
 
 // Types
 export type Project = typeof projects.$inferSelect;

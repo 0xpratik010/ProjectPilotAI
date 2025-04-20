@@ -21,6 +21,12 @@ interface ReportRecipient {
   role: string;
 }
 
+const reportTypes = [
+  { id: "weekly", name: "Weekly Status Report", description: "Comprehensive weekly status update including progress, issues, and upcoming milestones." },
+  { id: "milestone", name: "Milestone Report", description: "Detailed report on milestone completion status and timeline adherence." },
+  { id: "status", name: "Project Status Report", description: "Current project status, risks, and key metrics." },
+];
+
 const ReportGenerator = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -96,9 +102,10 @@ const ReportGenerator = () => {
   
   // Generate and send report
   const { mutate: generateReport, isPending } = useMutation({
+    mutationKey: ['generate-report'],
     mutationFn: async () => {
-      if (!selectedProject || !selectedDate) {
-        throw new Error("Project and date are required");
+      if (!selectedProject || !selectedDate || !reportType) {
+        throw new Error("Project, date, and report type are required");
       }
       
       const recipients = getAllRecipients();
@@ -136,154 +143,162 @@ const ReportGenerator = () => {
   };
   
   return (
-    <Card>
-      <CardContent className="p-6">
-        <h2 className="text-xl font-semibold mb-6">Generate Project Report</h2>
-        
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="project">Select Project</Label>
-            <Select 
-              value={selectedProject?.toString() || ""} 
-              onValueChange={(value) => setSelectedProject(parseInt(value))}
-            >
-              <SelectTrigger id="project" className="w-full">
-                <SelectValue placeholder="Select a project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id.toString()}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="reportType">Report Type</Label>
-            <Select 
-              value={reportType} 
-              onValueChange={(value: "weekly" | "milestone" | "status") => setReportType(value)}
-            >
-              <SelectTrigger id="reportType" className="w-full">
-                <SelectValue placeholder="Select report type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="weekly">Weekly Status Report</SelectItem>
-                <SelectItem value="milestone">Milestone Report</SelectItem>
-                <SelectItem value="status">Project Status Summary</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="reportDate">Report Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  id="reportDate"
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !selectedDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? (
-                    format(selectedDate, "PPP")
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2 mb-2">
-              <Checkbox 
-                id="includeDefault" 
-                checked={includeDefaultRecipients}
-                onCheckedChange={(checked) => 
-                  setIncludeDefaultRecipients(checked as boolean)
-                }
-              />
-              <Label 
-                htmlFor="includeDefault" 
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            {/* Project Selection */}
+            <div>
+              <Label>Project</Label>
+              <Select
+                value={selectedProject?.toString()}
+                onValueChange={(value) => setSelectedProject(Number(value))}
               >
-                Include default team recipients
-              </Label>
-            </div>
-            
-            {includeDefaultRecipients && selectedProjectDetails && (
-              <div className="bg-gray-50 p-3 rounded-md mb-4 text-sm">
-                <h4 className="font-medium text-gray-700 mb-2">Default Recipients:</h4>
-                <ul className="space-y-1 text-gray-600">
-                  {getDefaultRecipients().map((recipient, index) => (
-                    <li key={index} className="flex justify-between">
-                      <span>{recipient.name} ({recipient.role})</span>
-                      <span className="text-gray-500">{recipient.email}</span>
-                    </li>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {project.name}
+                    </SelectItem>
                   ))}
-                  {getDefaultRecipients().length === 0 && (
-                    <li className="text-gray-500">No default recipients found for this project</li>
-                  )}
-                </ul>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Report Type */}
+            <div>
+              <Label>Report Type</Label>
+              <Select
+                value={reportType}
+                onValueChange={setReportType}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select report type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {reportTypes.map(type => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {reportType && (
+                <p className="mt-1 text-sm text-gray-500">
+                  {reportTypes.find(t => t.id === reportType)?.description}
+                </p>
+              )}
+            </div>
+
+            {/* Date Selection */}
+            <div>
+              <Label>Report Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !selectedDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Recipients */}
+            <div className="space-y-2">
+              <Label>Recipients</Label>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="default-recipients"
+                  checked={includeDefaultRecipients}
+                  onCheckedChange={(checked) => setIncludeDefaultRecipients(checked as boolean)}
+                />
+                <label
+                  htmlFor="default-recipients"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Include default project team
+                </label>
               </div>
-            )}
-            
-            <Label htmlFor="additionalEmails">Additional Recipients (comma-separated)</Label>
-            <Input
-              id="additionalEmails"
-              placeholder="e.g., john.doe@example.com, jane.smith@example.com"
-              value={additionalEmails}
-              onChange={(e) => setAdditionalEmails(e.target.value)}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Enter email addresses separated by commas
-            </p>
-          </div>
-          
-          <div className="flex items-center space-x-4 pt-4">
+
+              <Input
+                placeholder="Additional email addresses (comma-separated)"
+                value={additionalEmails}
+                onChange={(e) => setAdditionalEmails(e.target.value)}
+              />
+            </div>
+
+            {/* Submit Button */}
             <Button
-              onClick={handleGenerateReport}
-              disabled={!selectedProject || !selectedDate || isPending || getAllRecipients().length === 0}
-              className="w-full sm:w-auto"
+              className="w-full"
+              onClick={() => generateReport()}
+              disabled={!selectedProject || !selectedDate || !reportType || isPending}
             >
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
+                  Generating Report...
                 </>
               ) : (
                 <>
-                  <Send className="mr-2 h-4 w-4" />
+                  <FileText className="mr-2 h-4 w-4" />
                   Generate & Send Report
                 </>
               )}
             </Button>
-            <Button
-              variant="outline"
-              disabled={!selectedProject || !selectedDate || isPending}
-              className="w-full sm:w-auto"
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              Preview Report
-            </Button>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Recipients Preview */}
+      {selectedProject && (
+        <Card>
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Recipients</h3>
+            <div className="space-y-4">
+              {getAllRecipients().length > 0 ? (
+                getAllRecipients().map((recipient, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-md"
+                  >
+                    <div>
+                      <p className="font-medium">{recipient.name}</p>
+                      <p className="text-sm text-gray-500">{recipient.email}</p>
+                    </div>
+                    <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
+                      {recipient.role}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 text-gray-500">
+                  <Mail className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No recipients selected</p>
+                  <p className="text-sm">Select the project team or add email addresses above</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 

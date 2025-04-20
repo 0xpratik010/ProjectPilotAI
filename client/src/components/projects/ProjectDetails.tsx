@@ -1,12 +1,23 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Project, Milestone, Subtask, Issue } from "@shared/schema";
-import { ArrowLeft, Share, Pencil } from "lucide-react";
+import { ArrowLeft, Share, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import Timeline from "./Timeline";
 import Issues from "./Issues";
 import TeamMembers from "./TeamMembers";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import React from 'react';
 
 interface ProjectDetailsProps {
   projectId: number;
@@ -15,7 +26,8 @@ interface ProjectDetailsProps {
 
 const ProjectDetails = ({ projectId, onBack }: ProjectDetailsProps) => {
   const queryClient = useQueryClient();
-  
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+
   const { data: project, isLoading: isLoadingProject } = useQuery<Project>({
     queryKey: [`/api/projects/${projectId}`],
   });
@@ -34,6 +46,30 @@ const ProjectDetails = ({ projectId, onBack }: ProjectDetailsProps) => {
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "Not set";
     return format(new Date(dateString), "MMMM d, yyyy");
+  };
+  
+  const deleteProjectMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isDeleted: true }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete project');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      onBack();
+    },
+  });
+
+  const handleDeleteProject = () => {
+    deleteProjectMutation.mutate();
   };
   
   if (isLoadingProject) {
@@ -85,6 +121,14 @@ const ProjectDetails = ({ projectId, onBack }: ProjectDetailsProps) => {
               <Button size="sm" className="flex items-center">
                 <Pencil size={16} className="mr-1.5" /> Edit
               </Button>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="flex items-center" 
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 size={16} className="mr-1.5" /> Delete
+              </Button>
             </div>
           </div>
           
@@ -133,6 +177,7 @@ const ProjectDetails = ({ projectId, onBack }: ProjectDetailsProps) => {
       {/* Project Timeline */}
       <Timeline 
         projectId={projectId} 
+        project={project}
         milestones={milestones} 
         isLoading={isLoadingMilestones} 
       />
@@ -174,6 +219,26 @@ const ProjectDetails = ({ projectId, onBack }: ProjectDetailsProps) => {
           </CardContent>
         </Card>
       </div>
+      
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete the project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will remove the project from your view. You won't be able to see it in your dashboard anymore.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteProject}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

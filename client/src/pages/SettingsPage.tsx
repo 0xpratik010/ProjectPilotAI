@@ -5,8 +5,28 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserCircle, Lock, Bell, Globe } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const SettingsPage = () => {
+  const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
+  const [selectedTheme, setSelectedTheme] = useState<'light' | 'dark' | 'system'>(theme);
+  
+  // Update selected theme when the theme context changes
+  useEffect(() => {
+    setSelectedTheme(theme);
+  }, [theme]);
+  
+  const handleSaveSettings = () => {
+    setTheme(selectedTheme);
+    toast({
+      title: "Settings saved",
+      description: `Theme set to ${selectedTheme} mode`,
+    });
+  };
+  
   return (
     <div className="container mx-auto p-4 md:p-6">
       <h1 className="text-2xl font-bold mb-6">Settings</h1>
@@ -247,21 +267,42 @@ const SettingsPage = () => {
                   <h4 className="font-medium">Theme</h4>
                   <p className="text-sm text-gray-500 mb-2">Set your interface theme preference</p>
                   <div className="flex items-center space-x-2">
-                    <input type="radio" id="theme1" name="theme" className="text-primary-600 focus:ring-primary-500" defaultChecked />
+                    <input 
+                      type="radio" 
+                      id="theme1" 
+                      name="theme" 
+                      className="text-primary-600 focus:ring-primary-500" 
+                      checked={selectedTheme === 'light'}
+                      onChange={() => setSelectedTheme('light')}
+                    />
                     <label htmlFor="theme1">Light</label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <input type="radio" id="theme2" name="theme" className="text-primary-600 focus:ring-primary-500" />
+                    <input 
+                      type="radio" 
+                      id="theme2" 
+                      name="theme" 
+                      className="text-primary-600 focus:ring-primary-500"
+                      checked={selectedTheme === 'dark'}
+                      onChange={() => setSelectedTheme('dark')}
+                    />
                     <label htmlFor="theme2">Dark</label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <input type="radio" id="theme3" name="theme" className="text-primary-600 focus:ring-primary-500" />
+                    <input 
+                      type="radio" 
+                      id="theme3" 
+                      name="theme" 
+                      className="text-primary-600 focus:ring-primary-500"
+                      checked={selectedTheme === 'system'}
+                      onChange={() => setSelectedTheme('system')}
+                    />
                     <label htmlFor="theme3">System Default</label>
                   </div>
                 </div>
 
                 <div className="flex justify-end">
-                  <Button>Save Settings</Button>
+                  <Button onClick={handleSaveSettings}>Save Settings</Button>
                 </div>
               </div>
             </CardContent>

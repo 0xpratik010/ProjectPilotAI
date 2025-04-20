@@ -30,11 +30,11 @@ const Dashboard = () => {
   };
 
   return (
-    <main className="flex-1 p-4 md:p-6 bg-gray-50 overflow-y-auto">
+    <main className="flex-1 p-4 md:p-6 bg-gray-50 dark:bg-background overflow-y-auto">
       {view === "dashboard" && (
         <div className="space-y-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold">Dashboard Overview</h2>
+            <h2 className="text-xl font-semibold dark:text-gray-100">Dashboard Overview</h2>
           </div>
           <Stats />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -19,75 +19,75 @@ const Stats = () => {
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="bg-white rounded-lg shadow-sm p-4">
+      <div className="bg-white dark:bg-card rounded-lg shadow-sm dark:shadow-md dark:shadow-gray-900/10 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500">Active Projects</p>
-            <p className="text-2xl font-bold mt-1">{activeProjects}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Active Projects</p>
+            <p className="text-2xl font-bold mt-1 dark:text-gray-100">{activeProjects}</p>
           </div>
-          <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center text-primary-500">
+          <div className="w-12 h-12 bg-primary-100 dark:bg-primary/20 rounded-full flex items-center justify-center text-primary-500 dark:text-primary">
             <Folder size={24} />
           </div>
         </div>
         <div className="flex items-center mt-4 text-xs">
-          <span className="text-green-500 flex items-center">
+          <span className="text-green-500 dark:text-green-400 flex items-center">
             <TrendingUp size={14} className="mr-1" /> 8%
           </span>
-          <span className="text-gray-500 ml-2">vs last month</span>
+          <span className="text-gray-500 dark:text-gray-400 ml-2">vs last month</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm p-4">
+      <div className="bg-white dark:bg-card rounded-lg shadow-sm dark:shadow-md dark:shadow-gray-900/10 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500">Upcoming Milestones</p>
-            <p className="text-2xl font-bold mt-1">{upcomingMilestones}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Upcoming Milestones</p>
+            <p className="text-2xl font-bold mt-1 dark:text-gray-100">{upcomingMilestones}</p>
           </div>
-          <div className="w-12 h-12 bg-secondary-100 rounded-full flex items-center justify-center text-secondary-500">
+          <div className="w-12 h-12 bg-secondary-100 dark:bg-secondary/20 rounded-full flex items-center justify-center text-secondary-500 dark:text-secondary-foreground">
             <Flag size={24} />
           </div>
         </div>
         <div className="flex items-center mt-4 text-xs">
-          <span className="text-red-500 flex items-center">
+          <span className="text-red-500 dark:text-red-400 flex items-center">
             <TrendingDown size={14} className="mr-1" /> 3%
           </span>
-          <span className="text-gray-500 ml-2">vs last month</span>
+          <span className="text-gray-500 dark:text-gray-400 ml-2">vs last month</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm p-4">
+      <div className="bg-white dark:bg-card rounded-lg shadow-sm dark:shadow-md dark:shadow-gray-900/10 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500">At Risk</p>
-            <p className="text-2xl font-bold mt-1">{atRiskProjects}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">At Risk</p>
+            <p className="text-2xl font-bold mt-1 dark:text-gray-100">{atRiskProjects}</p>
           </div>
-          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-red-500">
+          <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-500 dark:text-red-400">
             <AlertTriangle size={24} />
           </div>
         </div>
         <div className="flex items-center mt-4 text-xs">
-          <span className="text-green-500 flex items-center">
+          <span className="text-green-500 dark:text-green-400 flex items-center">
             <TrendingDown size={14} className="mr-1" /> 12%
           </span>
-          <span className="text-gray-500 ml-2">vs last month</span>
+          <span className="text-gray-500 dark:text-gray-400 ml-2">vs last month</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm p-4">
+      <div className="bg-white dark:bg-card rounded-lg shadow-sm dark:shadow-md dark:shadow-gray-900/10 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500">Completed</p>
-            <p className="text-2xl font-bold mt-1">{completedProjects}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
+            <p className="text-2xl font-bold mt-1 dark:text-gray-100">{completedProjects}</p>
           </div>
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-500">
+          <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-500 dark:text-green-400">
             <CheckSquare size={24} />
           </div>
         </div>
         <div className="flex items-center mt-4 text-xs">
-          <span className="text-green-500 flex items-center">
+          <span className="text-green-500 dark:text-green-400 flex items-center">
             <TrendingUp size={14} className="mr-1" /> 24%
           </span>
-          <span className="text-gray-500 ml-2">vs last month</span>
+          <span className="text-gray-500 dark:text-gray-400 ml-2">vs last month</span>
         </div>
       </div>
     </div>

@@ -1,27 +1,40 @@
-import { Express, Request, Response } from "express";
+import express, { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { processNaturalLanguageUpdate, generateWeeklySummary, getAssistantResponse } from "./ai";
 import { generateAndSendReport } from "./reports";
 import { insertProjectSchema, insertMilestoneSchema, insertSubtaskSchema, insertIssueSchema, insertUpdateSchema, insertChatMessageSchema } from "@shared/schema";
 import { z } from "zod";
+import { PromptHandler } from "./services/prompt-handler";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.use(express.json());
+
   // Projects
   app.get("/api/projects", async (req: Request, res: Response) => {
-    const projects = await storage.getProjects();
-    res.json(projects);
+    try {
+      const projects = await storage.getProjects();
+      res.json(projects);
+    } catch (error) {
+      console.error("Error getting projects:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   app.get("/api/projects/:id", async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
-    const project = await storage.getProject(id);
-    
-    if (!project) {
-      return res.status(404).json({ message: "Project not found" });
+    try {
+      const id = parseInt(req.params.id);
+      const project = await storage.getProject(id);
+      
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      
+      res.json(project);
+    } catch (error) {
+      console.error("Error getting project:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    
-    res.json(project);
   });
 
   app.post("/api/projects", async (req: Request, res: Response) => {
@@ -33,6 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
+      console.error("Error creating project:", error);
       res.status(500).json({ message: "Failed to create project" });
     }
   });
@@ -53,37 +67,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
+      console.error("Error updating project:", error);
       res.status(500).json({ message: "Failed to update project" });
     }
   });
 
   app.delete("/api/projects/:id", async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
-    const success = await storage.deleteProject(id);
-    
-    if (!success) {
-      return res.status(404).json({ message: "Project not found" });
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteProject(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    
-    res.status(204).end();
   });
 
   // Milestones
   app.get("/api/projects/:projectId/milestones", async (req: Request, res: Response) => {
-    const projectId = parseInt(req.params.projectId);
-    const milestones = await storage.getMilestones(projectId);
-    res.json(milestones);
+    try {
+      const projectId = parseInt(req.params.projectId);
+      const milestones = await storage.getMilestones(projectId);
+      res.json(milestones);
+    } catch (error) {
+      console.error("Error getting milestones:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   app.get("/api/milestones/:id", async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
-    const milestone = await storage.getMilestone(id);
-    
-    if (!milestone) {
-      return res.status(404).json({ message: "Milestone not found" });
+    try {
+      const id = parseInt(req.params.id);
+      const milestone = await storage.getMilestone(id);
+      
+      if (!milestone) {
+        return res.status(404).json({ message: "Milestone not found" });
+      }
+      
+      res.json(milestone);
+    } catch (error) {
+      console.error("Error getting milestone:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    
-    res.json(milestone);
   });
 
   app.post("/api/milestones", async (req: Request, res: Response) => {
@@ -95,6 +125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
+      console.error("Error creating milestone:", error);
       res.status(500).json({ message: "Failed to create milestone" });
     }
   });
@@ -115,53 +146,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
+      console.error("Error updating milestone:", error);
       res.status(500).json({ message: "Failed to update milestone" });
     }
   });
 
   app.delete("/api/milestones/:id", async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
-    const success = await storage.deleteMilestone(id);
-    
-    if (!success) {
-      return res.status(404).json({ message: "Milestone not found" });
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteMilestone(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Milestone not found" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting milestone:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    
-    res.status(204).end();
   });
 
   // Subtasks
-  app.get("/api/milestones/:milestoneId/subtasks", async (req: Request, res: Response) => {
-    const milestoneId = parseInt(req.params.milestoneId);
-    const subtasks = await storage.getSubtasks(milestoneId);
-    res.json(subtasks);
+  app.get("/api/milestones/:id/subtasks", async (req, res) => {
+    try {
+      const subtasks = await storage.getSubtasks(Number(req.params.id));
+      res.json(subtasks);
+    } catch (error) {
+      console.error("Error getting subtasks:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   app.get("/api/subtasks/:id", async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
-    const subtask = await storage.getSubtask(id);
-    
-    if (!subtask) {
-      return res.status(404).json({ message: "Subtask not found" });
-    }
-    
-    res.json(subtask);
-  });
-
-  app.post("/api/subtasks", async (req: Request, res: Response) => {
     try {
-      const data = insertSubtaskSchema.parse(req.body);
-      const subtask = await storage.createSubtask(data);
-      res.status(201).json(subtask);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      const id = parseInt(req.params.id);
+      const subtask = await storage.getSubtask(id);
+      
+      if (!subtask) {
+        return res.status(404).json({ message: "Subtask not found" });
       }
-      res.status(500).json({ message: "Failed to create subtask" });
+      
+      res.json(subtask);
+    } catch (error) {
+      console.error("Error getting subtask:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
-  app.patch("/api/subtasks/:id", async (req: Request, res: Response) => {
+  app.post("/api/milestones/:id/subtasks", async (req, res) => {
+    try {
+      console.log("Received subtask creation request:", {
+        params: req.params,
+        body: req.body
+      });
+
+      const data = insertSubtaskSchema.parse({
+        ...req.body,
+        milestoneId: Number(req.params.id),
+        status: "Not Started",
+        order: 1
+      });
+
+      console.log("Creating subtask with data:", data);
+      const result = await storage.createSubtask(data);
+      console.log("Subtask created successfully:", result);
+      res.status(201).json(result);
+    } catch (error) {
+      console.error("Error creating subtask:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation error", errors: error.errors });
+      }
+      res.status(400).json({ error: "Bad request", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.put("/api/subtasks/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       const subtask = await storage.getSubtask(id);
@@ -177,37 +237,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
+      console.error("Error updating subtask:", error);
       res.status(500).json({ message: "Failed to update subtask" });
     }
   });
 
   app.delete("/api/subtasks/:id", async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
-    const success = await storage.deleteSubtask(id);
-    
-    if (!success) {
-      return res.status(404).json({ message: "Subtask not found" });
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteSubtask(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Subtask not found" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting subtask:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    
-    res.status(204).end();
   });
 
   // Issues
   app.get("/api/projects/:projectId/issues", async (req: Request, res: Response) => {
-    const projectId = parseInt(req.params.projectId);
-    const issues = await storage.getIssues(projectId);
-    res.json(issues);
+    try {
+      const projectId = parseInt(req.params.projectId);
+      const issues = await storage.getIssues(projectId);
+      res.json(issues);
+    } catch (error) {
+      console.error("Error getting issues:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   app.get("/api/issues/:id", async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
-    const issue = await storage.getIssue(id);
-    
-    if (!issue) {
-      return res.status(404).json({ message: "Issue not found" });
+    try {
+      const id = parseInt(req.params.id);
+      const issue = await storage.getIssue(id);
+      
+      if (!issue) {
+        return res.status(404).json({ message: "Issue not found" });
+      }
+      
+      res.json(issue);
+    } catch (error) {
+      console.error("Error getting issue:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    
-    res.json(issue);
   });
 
   app.post("/api/issues", async (req: Request, res: Response) => {
@@ -219,6 +295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
+      console.error("Error creating issue:", error);
       res.status(500).json({ message: "Failed to create issue" });
     }
   });
@@ -239,26 +316,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
+      console.error("Error updating issue:", error);
       res.status(500).json({ message: "Failed to update issue" });
     }
   });
 
   app.delete("/api/issues/:id", async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
-    const success = await storage.deleteIssue(id);
-    
-    if (!success) {
-      return res.status(404).json({ message: "Issue not found" });
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteIssue(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Issue not found" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting issue:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    
-    res.status(204).end();
   });
 
   // Updates
   app.get("/api/projects/:projectId/updates", async (req: Request, res: Response) => {
-    const projectId = parseInt(req.params.projectId);
-    const updates = await storage.getUpdates(projectId);
-    res.json(updates);
+    try {
+      const projectId = parseInt(req.params.projectId);
+      const updates = await storage.getUpdates(projectId);
+      res.json(updates);
+    } catch (error) {
+      console.error("Error getting updates:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   app.post("/api/updates", async (req: Request, res: Response) => {
@@ -331,9 +419,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Chat messages
   app.get("/api/chat", async (req: Request, res: Response) => {
-    const projectId = req.query.projectId ? parseInt(req.query.projectId as string) : undefined;
-    const messages = await storage.getChatMessages(projectId);
-    res.json(messages);
+    try {
+      const projectId = req.query.projectId ? parseInt(req.query.projectId as string) : undefined;
+      const messages = await storage.getChatMessages(projectId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error getting chat messages:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   app.post("/api/chat", async (req: Request, res: Response) => {
@@ -344,17 +437,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createChatMessage(data);
       
       // Get project context if available
-      let projectContext = null;
+      let projectContext = undefined;
       if (data.projectId) {
-        const project = await storage.getProject(data.projectId);
-        const milestones = await storage.getMilestones(data.projectId);
-        const issues = await storage.getIssues(data.projectId);
-        
-        projectContext = {
-          project,
-          milestones,
-          issues
-        };
+        try {
+          const [project, milestones, issues, updates] = await Promise.all([
+            storage.getProject(data.projectId),
+            storage.getMilestones(data.projectId),
+            storage.getIssues(data.projectId),
+            storage.getUpdates(data.projectId)
+          ]);
+
+          if (project && milestones && issues && updates) {
+            projectContext = {
+              project,
+              milestones,
+              issues,
+              updates
+            };
+          }
+        } catch (error) {
+          console.error("Error fetching project context:", error);
+          // Continue without context if there's an error
+        }
       }
       
       // Get AI response
@@ -372,7 +476,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
+      console.error("Error processing chat message:", error);
       res.status(500).json({ message: "Failed to process chat message" });
+    }
+  });
+
+  // AI Project Assistant
+  app.post("/api/projects/:id/assistant", async (req, res) => {
+    try {
+      console.log("Received assistant request:", {
+        projectId: req.params.id,
+        body: req.body
+      });
+
+      const projectId = Number(req.params.id);
+      if (isNaN(projectId)) {
+        return res.status(400).json({ error: "Invalid project ID" });
+      }
+
+      // Verify project exists
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      const { prompt } = req.body;
+      if (!prompt || typeof prompt !== 'string') {
+        return res.status(400).json({ error: "Prompt is required and must be a string" });
+      }
+
+      const promptHandler = new PromptHandler(storage);
+      const result = await promptHandler.handlePrompt(prompt, projectId);
+      console.log("Assistant response:", result);
+
+      res.json({ result });
+    } catch (error) {
+      console.error("Error handling prompt:", error);
+      if (error instanceof Error && error.message.includes("Milestone")) {
+        return res.status(400).json({ error: error.message });
+      }
+      res.status(500).json({ 
+        error: "Internal server error", 
+        details: error instanceof Error ? error.message : String(error) 
+      });
     }
   });
 

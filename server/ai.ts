@@ -1,8 +1,20 @@
 import OpenAI from "openai";
 import { Update, Issue, Project, Milestone, Subtask } from "@shared/schema";
+import dotenv from "dotenv";
+dotenv.config();
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "sk-dummy-key-for-development" });
+type Role = "system" | "user" | "assistant";
+interface ChatMessage {
+  role: Role;
+  content: string;
+}
+
+// Initialize OpenAI with fallback and retry logic
+const openai = new OpenAI({ 
+  apiKey: process.env.OPENAI_API_KEY || '',
+  maxRetries: 3,
+  timeout: 30000
+});
 
 interface ProcessedUpdate {
   affectedMilestones: {
@@ -43,41 +55,59 @@ export async function processNaturalLanguageUpdate(
   subtasks: Subtask[]
 ): Promise<ProcessedUpdate> {
   try {
-    const prompt = `
-    You are a project management AI assistant. Analyze the following project update message and extract structured information.
-    
-    PROJECT CONTEXT:
-    Project: ${project.name} (${project.status}, ${project.progress}% complete)
-    Current Milestones: ${milestones.map(m => `${m.name} (${m.status})`).join(', ')}
-    
-    PROJECT UPDATE:
-    "${update.content}"
-    
-    Based on this update, provide the following information in JSON format:
-    1. Affected milestones with their IDs and any status changes
-    2. Affected subtasks with their IDs and any status changes
-    3. Any new issues or blockers that should be created
-    4. Explicit status changes mentioned (from what to what)
-    5. Any delays mentioned and their impact
-    6. A brief summary of the update
-    
-    Only include items that are explicitly or strongly implied in the update.
-    `;
+    const systemPrompt = `You are a project management AI assistant. Your role is to analyze project updates and extract structured information.
+
+Key Responsibilities:
+1. Identify affected milestones and subtasks
+2. Detect status changes
+3. Identify potential issues or risks
+4. Track delays and their impact
+5. Provide concise summaries
+
+Project Context:
+- Project: ${project.name} (${project.status})
+- Progress: ${project.progress}%
+- Milestones: ${milestones.map(m => `${m.name} (${m.status})`).join(', ')}
+- Active Subtasks: ${subtasks.map(s => `${s.name} (${s.status})`).join(', ')}
+
+Guidelines:
+- Only extract information that is explicitly mentioned or strongly implied
+- Maintain consistency with existing project structure
+- Be precise with status changes and delays
+- Prioritize actionable insights`;
+
+    const userPrompt = `Analyze this project update and provide structured information:
+"${update.content}"
+
+Return a JSON object with:
+1. affectedMilestones: Array of {id, name, newStatus?}
+2. affectedSubtasks: Array of {id, name, newStatus?}
+3. issues: Array of {title, description, priority}
+4. statusChanges: Array of {entityType, entityId, oldStatus, newStatus}
+5. delayNotifications: Array of {entityType, entityId, entityName, delayDays, reason?}
+6. summary: String (concise summary of key points)`;
+
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ];
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+      messages,
       response_format: { type: "json_object" },
+      temperature: 0.3
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const result = JSON.parse(response.choices[0].message.content || '{}');
     
+    // Validate and clean the response
     return {
-      affectedMilestones: result.affectedMilestones || [],
-      affectedSubtasks: result.affectedSubtasks || [],
-      issues: result.issues || [],
-      statusChanges: result.statusChanges || [],
-      delayNotifications: result.delayNotifications || [],
+      affectedMilestones: validateMilestones(result.affectedMilestones || [], milestones),
+      affectedSubtasks: validateSubtasks(result.affectedSubtasks || [], subtasks),
+      issues: validateIssues(result.issues || []),
+      statusChanges: validateStatusChanges(result.statusChanges || []),
+      delayNotifications: validateDelays(result.delayNotifications || []),
       summary: result.summary || "Update processed successfully."
     };
   } catch (error) {
@@ -93,6 +123,50 @@ export async function processNaturalLanguageUpdate(
   }
 }
 
+// Validation helpers
+function validateMilestones(affected: any[], existing: Milestone[]) {
+  return affected.filter(a => 
+    existing.some(e => e.id === a.id) &&
+    typeof a.name === 'string' &&
+    (!a.newStatus || typeof a.newStatus === 'string')
+  );
+}
+
+function validateSubtasks(affected: any[], existing: Subtask[]) {
+  return affected.filter(a => 
+    existing.some(e => e.id === a.id) &&
+    typeof a.name === 'string' &&
+    (!a.newStatus || typeof a.newStatus === 'string')
+  );
+}
+
+function validateIssues(issues: any[]) {
+  return issues.filter(i =>
+    typeof i.title === 'string' &&
+    typeof i.description === 'string' &&
+    ['High', 'Medium', 'Low'].includes(i.priority)
+  );
+}
+
+function validateStatusChanges(changes: any[]) {
+  return changes.filter(c =>
+    ['project', 'milestone', 'subtask'].includes(c.entityType) &&
+    typeof c.entityId === 'number' &&
+    typeof c.oldStatus === 'string' &&
+    typeof c.newStatus === 'string'
+  );
+}
+
+function validateDelays(delays: any[]) {
+  return delays.filter(d =>
+    ['project', 'milestone', 'subtask'].includes(d.entityType) &&
+    typeof d.entityId === 'number' &&
+    typeof d.entityName === 'string' &&
+    typeof d.delayDays === 'number' &&
+    (!d.reason || typeof d.reason === 'string')
+  );
+}
+
 export async function generateWeeklySummary(
   project: Project, 
   milestones: Milestone[],
@@ -101,69 +175,110 @@ export async function generateWeeklySummary(
   updates: Update[]
 ): Promise<string> {
   try {
-    const prompt = `
-    Generate a concise weekly summary for the following project:
-    
-    PROJECT DETAILS:
-    Name: ${project.name}
-    Status: ${project.status}
-    Progress: ${project.progress}%
-    
-    MILESTONES:
-    ${milestones.map(m => `- ${m.name}: ${m.status}`).join('\n')}
-    
-    ACTIVE ISSUES (${issues.filter(i => i.status === 'Open').length}):
-    ${issues.filter(i => i.status === 'Open').map(i => `- ${i.title} (${i.priority})`).join('\n')}
-    
-    RECENT UPDATES:
-    ${updates.slice(0, 5).map(u => `- ${u.content}`).join('\n')}
-    
-    Generate a professional weekly summary that highlights progress, challenges, and next steps.
-    `;
+    const systemPrompt = `You are a project management AI assistant specialized in creating concise, informative weekly summaries.
+
+Key Focus Areas:
+1. Progress highlights
+2. Key achievements
+3. Current challenges
+4. Risk mitigation
+5. Next week's priorities
+
+Guidelines:
+- Be concise but comprehensive
+- Highlight actionable insights
+- Focus on key metrics and milestones
+- Maintain a professional tone`;
+
+    const userPrompt = `Generate a weekly summary for:
+
+Project: ${project.name}
+Status: ${project.status}
+Progress: ${project.progress}%
+
+Milestones:
+${milestones.map(m => `- ${m.name}: ${m.status}`).join('\n')}
+
+Active Issues (${issues.filter(i => i.status === 'Open').length}):
+${issues.filter(i => i.status === 'Open').map(i => `- ${i.title} (${i.priority})`).join('\n')}
+
+Recent Updates:
+${updates.slice(0, 5).map(u => `- ${u.content}`).join('\n')}`;
+
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ];
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+      messages,
+      temperature: 0.3
     });
 
-    return response.choices[0].message.content;
+    return response.choices[0].message.content || "Unable to generate summary.";
   } catch (error) {
     console.error("Error generating weekly summary:", error);
-    return "Unable to generate weekly summary at this time.";
+    return "Unable to generate weekly summary. Please try again later.";
   }
 }
 
-export async function getAssistantResponse(question: string, projectContext?: any): Promise<string> {
+export async function getAssistantResponse(
+  question: string, 
+  projectContext?: {
+    project: Project;
+    milestones: Milestone[];
+    issues: Issue[];
+    updates: Update[];
+  }
+): Promise<string> {
   try {
-    let prompt = `You are a project management assistant. Answer the following question helpfully and concisely:\n\n${question}`;
-    
+    const systemPrompt = `You are a project management AI assistant with expertise in:
+- Project planning and tracking
+- Risk management
+- Resource allocation
+- Timeline optimization
+- Issue resolution
+
+Guidelines:
+- Provide clear, actionable advice
+- Be concise but thorough
+- Support answers with project data when available
+- Maintain a helpful, professional tone`;
+
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: question }
+    ];
+
     if (projectContext) {
-      prompt = `
-      You are a project management assistant. You have access to the following project information:
-      
-      PROJECT DETAILS:
-      ${JSON.stringify(projectContext.project, null, 2)}
-      
-      MILESTONES:
-      ${JSON.stringify(projectContext.milestones, null, 2)}
-      
-      ISSUES:
-      ${JSON.stringify(projectContext.issues, null, 2)}
-      
-      Answer the following question helpfully and concisely based on this information:
-      
-      "${question}"
-      `;
+      messages.splice(1, 0, {
+        role: "system",
+        content: `Current Project Context:
+Project: ${projectContext.project.name}
+Status: ${projectContext.project.status}
+Progress: ${projectContext.project.progress}%
+
+Milestones:
+${projectContext.milestones.map(m => `- ${m.name}: ${m.status}`).join('\n')}
+
+Active Issues:
+${projectContext.issues.filter(i => i.status === 'Open').map(i => `- ${i.title} (${i.priority})`).join('\n')}
+
+Recent Updates:
+${projectContext.updates.slice(0, 3).map(u => `- ${u.content}`).join('\n')}`
+      });
     }
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+      messages,
+      temperature: 0.3
     });
 
-    return response.choices[0].message.content;
+    return response.choices[0].message.content || "No response generated.";
   } catch (error) {
     console.error("Error getting assistant response:", error);
-    return "I'm sorry, I'm having trouble answering that question right now. Please try again later.";
+    return "I apologize, but I'm having trouble processing your request. Please try again or rephrase your question.";
   }
 }
