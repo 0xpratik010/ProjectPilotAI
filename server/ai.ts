@@ -1,7 +1,6 @@
 import OpenAI from "openai";
 import { Update, Issue, Project, Milestone, Subtask } from "@shared/schema";
-import dotenv from "dotenv";
-dotenv.config();
+import 'dotenv/config';
 
 type Role = "system" | "user" | "assistant";
 interface ChatMessage {

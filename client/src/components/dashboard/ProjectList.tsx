@@ -3,6 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Project } from "@shared/schema";
+import { Link } from "wouter";
 
 interface ProjectListProps {
   onSelect: (projectId: number) => void;
@@ -40,11 +41,10 @@ const ProjectList = ({ onSelect, onNewProject }: ProjectListProps) => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {projects?.map((project) => (
-          <Card 
-            key={project.id}
-            className="p-4 hover:shadow-lg dark:hover:shadow-gray-900/20 transition-shadow cursor-pointer dark:bg-card dark:border-gray-700 dark:shadow-md dark:shadow-gray-900/10"
-            onClick={() => onSelect(project.id)}
-          >
+          <Link key={project.id} href={`/projects/${project.id}`}>
+            <Card 
+              className="p-4 hover:shadow-lg dark:hover:shadow-gray-900/20 transition-shadow cursor-pointer dark:bg-card dark:border-gray-700 dark:shadow-md dark:shadow-gray-900/10"
+            >
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold dark:text-gray-200">{project.name}</h3>
               <span className={`px-2 py-1 text-sm rounded-full ${
@@ -90,7 +90,8 @@ const ProjectList = ({ onSelect, onNewProject }: ProjectListProps) => {
                 </div>
               </div>
             </div>
-          </Card>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>

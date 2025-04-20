@@ -13,23 +13,38 @@ export const projectStatusEnum = pgEnum('project_status', [
 ]);
 
 export const milestoneStatusEnum = pgEnum('milestone_status', [
-  'Not Started', 
-  'In Progress', 
-  'Completed'
+  'not_started',
+  'in_progress',
+  'completed',
+  'delayed',
+  'critical',
+  'blocked'
+]);
+
+export const subtaskStatusEnum = pgEnum('subtask_status', [
+  'not_started',
+  'in_progress',
+  'completed',
+  'blocked'
 ]);
 
 export const issueStatusEnum = pgEnum('issue_status', [
-  'Open', 
-  'In Progress', 
-  'Resolved', 
-  'Closed'
+  'open',
+  'in_progress',
+  'resolved',
+  'closed'
 ]);
 
-export const issuePriorityEnum = pgEnum('issue_priority', [
-  'Low',
-  'Medium',
-  'High',
-  'Critical'
+export const issueSeverityEnum = pgEnum('issue_severity', [
+  'low',
+  'medium',
+  'high',
+  'critical'
+]);
+
+export const issueSourceEnum = pgEnum('issue_source', [
+  'manual',
+  'ai'
 ]);
 
 // Project
@@ -57,18 +72,30 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Project People
+export const projectPeople = pgTable("project_people", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  userId: integer("user_id"), // FK to users table if available
+  name: text("name"), // fallback if no user table
+  role: text("role"),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+});
+
 // Milestones
 export const milestones = pgTable("milestones", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
   description: text("description"),
-  status: text("status").default("Not Started").notNull(),
+  status: text("status").default("not_started").notNull(),
   startDate: date("start_date"),
   endDate: date("end_date"),
   owner: text("owner"),
   order: integer("order").notNull(),
   durationInWeeks: integer("duration_in_weeks"),
+  color: text("color"), // computed or stored for fast queries
+  isCritical: boolean("is_critical").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -83,9 +110,11 @@ export const subtasks = pgTable("subtasks", {
   milestoneId: integer("milestone_id").notNull().references(() => milestones.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
   description: text("description"),
-  status: text("status").default("Not Started").notNull(),
+  status: text("status").default("not_started").notNull(),
   startDate: date("start_date"),
   endDate: date("end_date"),
+  assignedTo: text("assigned_to"),
+  dueDate: date("due_date"),
   owner: text("owner"),
   emailToSend: text("email_to_send"),
   order: integer("order").notNull(),
@@ -101,11 +130,15 @@ export const insertSubtaskSchema = createInsertSchema(subtasks).omit({
 export const issues = pgTable("issues", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  milestoneId: integer("milestone_id").references(() => milestones.id, { onDelete: 'set null' }),
+  subtaskId: integer("subtask_id").references(() => subtasks.id, { onDelete: 'set null' }),
   title: text("title").notNull(),
   description: text("description"),
-  status: text("status").default("Open").notNull(),
+  status: text("status").default("open").notNull(),
+  severity: text("severity").default("medium").notNull(),
   priority: text("priority").default("Medium").notNull(),
   owner: text("owner"),
+  source: text("source").default("manual").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at"),
   reportedBy: text("reported_by"),

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Milestone, Subtask, Project, Issue } from "@shared/schema";
@@ -11,6 +11,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,6 +63,8 @@ const Timeline = ({ projectId, project, milestones, isLoading }: TimelineProps) 
     dueDate: new Date(),
     assignedTo: "",
   });
+  const [sortedMilestones, setSortedMilestones] = useState<Milestone[]>([]);
+  const { toast } = useToast();
 
   const queryClient = useQueryClient();
 
@@ -143,6 +153,37 @@ const Timeline = ({ projectId, project, milestones, isLoading }: TimelineProps) 
       queryClient.invalidateQueries({ queryKey: ["subtasks", selectedMilestone] });
     },
   });
+
+  const updateMilestoneMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/milestones/${id}`, data);
+      return res.json();
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["milestones", projectId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}`] });
+      toast({
+        title: "Status Updated",
+        description: `Milestone status changed to ${variables.data.status}`,
+      });
+    },
+    onError: (error) => {
+      console.error("Error updating milestone:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update milestone status. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Sort milestones by order when they change
+  useEffect(() => {
+    if (milestonesData) {
+      const sorted = [...milestonesData].sort((a, b) => a.order - b.order);
+      setSortedMilestones(sorted);
+    }
+  }, [milestonesData]);
 
   // Calculate milestone dates based on project start date and timeline config
   const calculateMilestoneDates = () => {
@@ -387,6 +428,112 @@ const Timeline = ({ projectId, project, milestones, isLoading }: TimelineProps) 
     );
   }
 
+  // Function to handle milestone status change with dependency validation
+  const handleMilestoneStatusChange = (milestoneId: number, newStatus: string) => {
+    // Don't do anything if the status hasn't changed
+    const currentMilestone = milestonesData?.find(m => m.id === milestoneId);
+    if (!currentMilestone || currentMilestone.status === newStatus) return;
+    
+    // Find the current milestone and its index
+    const currentMilestoneIndex = milestonesData?.findIndex(m => m.id === milestoneId);
+    if (currentMilestoneIndex === -1 || currentMilestoneIndex === undefined) return;
+    
+    // Check dependencies based on the new status
+    if (newStatus === "In Progress") {
+      // 2nd milestone cannot be started if 1st one is not started
+      if (currentMilestoneIndex > 0) {
+        const previousMilestone = milestonesData[currentMilestoneIndex - 1];
+        if (previousMilestone.status === "Not Started") {
+          toast({
+            title: "Cannot start milestone",
+            description: `${currentMilestone.name} cannot be started because ${previousMilestone.name} has not been started yet.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    } else if (newStatus === "Completed") {
+      // 3rd milestone cannot be completed if 1st is not completed
+      if (currentMilestoneIndex >= 2) {
+        const firstMilestone = milestonesData[0];
+        if (firstMilestone.status !== "Completed") {
+          toast({
+            title: "Cannot complete milestone",
+            description: `${currentMilestone.name} cannot be completed because ${firstMilestone.name} has not been completed yet.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
+      // Check if all subtasks are completed
+      const milestoneSubtasks = subtasksMap[milestoneId] || [];
+      const incompleteSubtasks = milestoneSubtasks.filter(s => s.status !== "completed");
+      
+      if (incompleteSubtasks.length > 0) {
+        toast({
+          title: "Incomplete subtasks",
+          description: `Please complete all subtasks before marking this milestone as completed.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    // If all checks pass, update the milestone status
+    updateMilestoneMutation.mutate({
+      id: milestoneId,
+      data: { status: newStatus }
+    });
+    
+    // Update project status based on milestone statuses
+    updateProjectStatus(newStatus, currentMilestoneIndex);
+  };
+  
+  // Function to update project status based on milestone statuses
+  const updateProjectStatus = (newMilestoneStatus: string, currentMilestoneIndex: number) => {
+    // If any milestone is started, project status should be In Progress
+    if (newMilestoneStatus === "In Progress" && project.status === "Not Started") {
+      // Update project status to In Progress
+      apiRequest("PATCH", `/api/projects/${projectId}`, { status: "In Progress" })
+        .catch(error => {
+          console.error("Error updating project status:", error);
+        });
+    }
+    
+    // Calculate project progress based on completed milestones
+    const totalMilestones = milestonesData?.length || 0;
+    if (totalMilestones > 0) {
+      // Count how many milestones will be completed after this update
+      let completedCount = milestonesData?.filter(m => m.status === "Completed").length || 0;
+      
+      // Add one if the current milestone is being marked as completed
+      if (newMilestoneStatus === "Completed") {
+        completedCount += 1;
+      } else if (newMilestoneStatus !== "Completed" && milestonesData?.[currentMilestoneIndex]?.status === "Completed") {
+        // Subtract one if the current milestone is being unmarked as completed
+        completedCount -= 1;
+      }
+      
+      // Calculate progress percentage
+      const progress = Math.round((completedCount / totalMilestones) * 100);
+      
+      // Update project progress and status in a single request
+      const updates: any = { progress };
+      
+      // If all milestones are completed, mark project as Completed
+      if (completedCount === totalMilestones && progress === 100) {
+        updates.status = "Completed";
+      }
+      
+      // Send the update request
+      apiRequest("PATCH", `/api/projects/${projectId}`, updates)
+        .catch(error => {
+          console.error("Error updating project progress:", error);
+        });
+    }
+  };
+
   return (
     <div className="space-y-8">
       <h2 className="text-2xl font-bold">Project Timeline</h2>
@@ -411,7 +558,29 @@ const Timeline = ({ projectId, project, milestones, isLoading }: TimelineProps) 
                     {milestone.startDate ? format(new Date(milestone.startDate), "MMM d") : "Not set"} - {milestone.endDate ? format(new Date(milestone.endDate), "MMM d") : "Not set"}
                   </p>
                 </div>
-                <span className="px-2 py-1 text-sm rounded-full bg-gray-100">{milestone.status}</span>
+                <Select
+                  value={milestone.status}
+                  onValueChange={(value) => handleMilestoneStatusChange(milestone.id, value)}
+                  disabled={updateMilestoneMutation.isPending}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Status">
+                      {updateMilestoneMutation.isPending && milestone.id === updateMilestoneMutation.variables?.id ? (
+                        <div className="flex items-center">
+                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                          Updating...
+                        </div>
+                      ) : (
+                        milestone.status
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Not Started">Not Started</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-4">
@@ -532,7 +701,7 @@ const Timeline = ({ projectId, project, milestones, isLoading }: TimelineProps) 
                           onClick={() => {
                             updateSubtaskMutation.mutate({
                               id: subtask.id,
-                              status: subtask.status === "Completed" ? "In Progress" : "Completed",
+                              data: { status: subtask.status === "completed" ? "in_progress" : "completed" },
                             });
                           }}
                         >

@@ -39,8 +39,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects", async (req: Request, res: Response) => {
     try {
-      const data = insertProjectSchema.parse(req.body);
-      const project = await storage.createProject(data);
+      // Accepts: {...projectFields, people: [...], timeline: [...]}
+      const { people, timeline, ...projectData } = req.body;
+      const data = insertProjectSchema.parse(projectData);
+      // people/timeline validated in backend, skip here for flexibility
+      const project = await storage.createProject({ ...data, people, timeline });
       res.status(201).json(project);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -48,6 +51,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error creating project:", error);
       res.status(500).json({ message: "Failed to create project" });
+    }
+  });
+
+  // Project People CRUD
+  app.get("/api/projects/:projectId/people", async (req: Request, res: Response) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      const people = await storage.getProjectPeople(projectId);
+      res.json(people);
+    } catch (error) {
+      console.error("Error getting project people:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/projects/:projectId/people", async (req: Request, res: Response) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      const person = { ...req.body, projectId };
+      // TODO: validate person fields if needed
+      const created = await storage.addProjectPerson(person);
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("Error adding project person:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/people/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updated = await storage.updateProjectPerson(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating project person:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/people/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.removeProjectPerson(id);
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting project person:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
@@ -96,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(milestones);
     } catch (error) {
       console.error("Error getting milestones:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -112,18 +162,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(milestone);
     } catch (error) {
       console.error("Error getting milestone:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 
   app.post("/api/milestones", async (req: Request, res: Response) => {
     try {
+      // Accepts all milestone fields, including color, isCritical, etc.
       const data = insertMilestoneSchema.parse(req.body);
       const milestone = await storage.createMilestone(data);
       res.status(201).json(milestone);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      if (error instanceof Error && error.message.includes('subtasks')) {
+        return res.status(400).json({ message: error.message });
       }
       console.error("Error creating milestone:", error);
       res.status(500).json({ message: "Failed to create milestone" });
@@ -145,6 +199,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      if (error instanceof Error && error.message.includes('subtasks')) {
+        return res.status(400).json({ message: error.message });
       }
       console.error("Error updating milestone:", error);
       res.status(500).json({ message: "Failed to update milestone" });
@@ -174,7 +231,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(subtasks);
     } catch (error) {
       console.error("Error getting subtasks:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.get("/api/milestones/:id/issues", async (req, res) => {
+    try {
+      const milestoneId = Number(req.params.id);
+      // Get all issues for the project that this milestone belongs to
+      const milestone = await storage.getMilestone(milestoneId);
+      if (!milestone) {
+        return res.status(404).json({ message: "Milestone not found" });
+      }
+      
+      // Get all issues for the project
+      const allIssues = await storage.getIssues(milestone.projectId);
+      
+      // Filter issues that are related to this milestone
+      const milestoneIssues = allIssues.filter(issue => issue.milestoneId === milestoneId);
+      res.json(milestoneIssues);
+    } catch (error) {
+      console.error("Error getting milestone issues:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -196,21 +274,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/milestones/:id/subtasks", async (req, res) => {
     try {
-      console.log("Received subtask creation request:", {
-        params: req.params,
-        body: req.body
-      });
-
       const data = insertSubtaskSchema.parse({
         ...req.body,
         milestoneId: Number(req.params.id),
-        status: "Not Started",
-        order: 1
+        // Allow status/assignedTo/dueDate from body, fallback to defaults
+        status: req.body.status || "not_started",
+        assignedTo: req.body.assignedTo || null,
+        dueDate: req.body.dueDate || null,
+        order: req.body.order || 1
       });
-
-      console.log("Creating subtask with data:", data);
       const result = await storage.createSubtask(data);
-      console.log("Subtask created successfully:", result);
       res.status(201).json(result);
     } catch (error) {
       console.error("Error creating subtask:", error);
@@ -230,7 +303,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Subtask not found" });
       }
       
-      const data = insertSubtaskSchema.partial().parse(req.body);
+      // Check if the request has a 'data' property (from frontend mutation)
+      const updateData = req.body.data || req.body;
+      
+      // Make sure we have data to update
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "No update data provided" });
+      }
+      
+      const data = insertSubtaskSchema.partial().parse(updateData);
       const updatedSubtask = await storage.updateSubtask(id, data);
       res.json(updatedSubtask);
     } catch (error) {
@@ -265,8 +346,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const issues = await storage.getIssues(projectId);
       res.json(issues);
     } catch (error) {
-      console.error("Error getting issues:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error("Error getting project issues:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -282,12 +363,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(issue);
     } catch (error) {
       console.error("Error getting issue:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 
   app.post("/api/issues", async (req: Request, res: Response) => {
     try {
+      // Accepts milestoneId, subtaskId, severity, source, etc.
       const data = insertIssueSchema.parse(req.body);
       const issue = await storage.createIssue(data);
       res.status(201).json(issue);

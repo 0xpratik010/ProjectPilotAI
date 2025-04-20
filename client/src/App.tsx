@@ -6,6 +6,7 @@ import HomePage from "@/pages/HomePage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import ProjectsPage from "@/pages/ProjectsPage";
+import ProjectPage from "@/pages/ProjectPage";
 import TeamsPage from "@/pages/TeamsPage";
 import CalendarPage from "@/pages/CalendarPage";
 import ReportsPage from "@/pages/ReportsPage";
@@ -36,6 +37,7 @@ function App() {
               <Route path="/analytics" component={AnalyticsPage} />
               <Route path="/settings" component={SettingsPage} />
               <Route path="/projects" component={ProjectsPage} />
+              <Route path="/projects/:id" component={ProjectPage} />
               <Route path="/teams" component={TeamsPage} />
               <Route path="/calendar" component={CalendarPage} />
               <Route path="/reports" component={ReportsPage} />

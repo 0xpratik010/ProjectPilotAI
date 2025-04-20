@@ -3,15 +3,19 @@ import { storage } from './storage';
 import { db } from './db';
 import { format } from 'date-fns';
 import { generateWeeklySummary } from './ai';
+import 'dotenv/config';
 
-// SendGrid integration for email sending
-// This requires the SENDGRID_API_KEY to be set in environment variables
-import { MailService } from '@sendgrid/mail';
+// Brevo (Sendinblue) integration for email sending
+// This requires the EMAIL_API to be set in environment variables
+import SibApiV3Sdk from 'sib-api-v3-sdk';
 
-let mailService: MailService | null = null;
-if (process.env.SENDGRID_API_KEY) {
-  mailService = new MailService();
-  mailService.setApiKey(process.env.SENDGRID_API_KEY);
+let brevoClient: typeof SibApiV3Sdk.ApiClient.instance | null = null;
+let emailCampaignsApi: SibApiV3Sdk.EmailCampaignsApi | null = null;
+if (process.env.EMAIL_API) {
+  brevoClient = SibApiV3Sdk.ApiClient.instance;
+  const apiKey = brevoClient.authentications['api-key'];
+  apiKey.apiKey = process.env.EMAIL_API;
+  emailCampaignsApi = new SibApiV3Sdk.EmailCampaignsApi();
 }
 
 interface ReportOptions {
@@ -23,11 +27,11 @@ interface ReportOptions {
 
 export async function generateAndSendReport(options: ReportOptions): Promise<{ success: boolean; message: string }> {
   try {
-    // Verify SendGrid API key is set
-    if (!mailService) {
+    // Verify Brevo EMAIL_API key is set
+    if (!process.env.EMAIL_API) {
       return {
         success: false,
-        message: 'SendGrid API key is not configured. Please set SENDGRID_API_KEY in environment variables.'
+        message: 'Brevo EMAIL_API key is not configured. Please set EMAIL_API in environment variables.'
       };
     }
 
@@ -89,17 +93,25 @@ export async function generateAndSendReport(options: ReportOptions): Promise<{ s
         break;
     }
     
-    // Send the email
-    const msg = {
-      to: options.recipients,
-      from: 'project-tracker@example.com', // Replace with your verified sender
-      subject,
-      text: textContent,
-      html: htmlContent,
-    };
-    
-    await mailService.send(msg);
-    
+    // Send the email using Brevo TransactionalEmailsApi
+    if (!process.env.EMAIL_API) {
+      return {
+        success: false,
+        message: 'Brevo EMAIL_API key is not configured. Please set EMAIL_API in environment variables.'
+      };
+    }
+
+    const transactionalEmailsApi = new SibApiV3Sdk.TransactionalEmailsApi();
+
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    sendSmtpEmail.subject = subject;
+    sendSmtpEmail.htmlContent = htmlContent;
+    sendSmtpEmail.textContent = textContent;
+    sendSmtpEmail.sender = { name: 'Project Tracker', email: 'swapnilbelote70@gmail.com' };
+    sendSmtpEmail.to = options.recipients.map(email => ({ email }));
+
+    await transactionalEmailsApi.sendTransacEmail(sendSmtpEmail);
+
     return {
       success: true,
       message: `Report successfully sent to ${options.recipients.length} recipient(s).`

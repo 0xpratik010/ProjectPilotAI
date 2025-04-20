@@ -9,6 +9,22 @@ import { eq, and, desc } from "drizzle-orm";
 import { IStorage } from "./storage";
 
 export class DatabaseStorage implements IStorage {
+  // Project People methods
+  async getProjectPeople(projectId: number) {
+    return await db.select().from(projectPeople).where(eq(projectPeople.projectId, projectId));
+  }
+  async addProjectPerson(person: any) {
+    const [result] = await db.insert(projectPeople).values(person).returning();
+    return result;
+  }
+  async updateProjectPerson(id: number, updates: Partial<any>) {
+    const [result] = await db.update(projectPeople).set(updates).where(eq(projectPeople.id, id)).returning();
+    return result;
+  }
+  async removeProjectPerson(id: number) {
+    await db.delete(projectPeople).where(eq(projectPeople.id, id));
+    return true;
+  }
   constructor() {
     // No initialization needed for database storage
   }
@@ -32,12 +48,29 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
   
-  async createProject(project: InsertProject): Promise<Project> {
-    const [result] = await db.insert(projects).values(project).returning();
-    
-    // Create default milestones for the project
-    await this.createDefaultMilestones(result.id);
-    
+  async createProject(project: InsertProject & { people?: any[], timeline?: any[] }): Promise<Project> {
+    const { people, timeline, ...projData } = project;
+    const [result] = await db.insert(projects).values(projData).returning();
+    // Add project people if provided
+    if (people && people.length > 0) {
+      for (const person of people) {
+        await this.addProjectPerson({ ...person, projectId: result.id });
+      }
+    }
+    // Add timeline (milestones and subtasks) if provided
+    if (timeline && timeline.length > 0) {
+      for (const ms of timeline) {
+        const milestoneResult = await this.createMilestone({ ...ms, projectId: result.id });
+        if (ms.subtasks && ms.subtasks.length > 0) {
+          for (const st of ms.subtasks) {
+            await this.createSubtask({ ...st, milestoneId: milestoneResult.id });
+          }
+        }
+      }
+    } else {
+      // Create default milestones if no timeline provided
+      await this.createDefaultMilestones(result.id);
+    }
     return result;
   }
   
@@ -159,18 +192,73 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createMilestone(milestone: InsertMilestone): Promise<Milestone> {
+    // Compute color if not set
+    if (!milestone.color) {
+      milestone.color = this.getMilestoneColor(milestone.status || 'not_started');
+    }
     const [result] = await db.insert(milestones).values(milestone).returning();
     return result;
   }
-  
+
   async updateMilestone(id: number, milestone: Partial<Milestone>): Promise<Milestone | undefined> {
+    // If status is being set to completed, check all subtasks are completed
+    if (milestone.status === 'completed') {
+      const ms = await db.select().from(milestones).where(eq(milestones.id, id));
+      if (ms.length > 0) {
+        const subtasksList = await db.select().from(subtasks).where(eq(subtasks.milestoneId, id));
+        const incomplete = subtasksList.filter(s => s.status !== 'completed');
+        if (incomplete.length > 0) {
+          throw new Error('Cannot complete milestone: some subtasks are incomplete.');
+        }
+      }
+    }
+    // Always update color if status changes
+    if (milestone.status) {
+      milestone.color = this.getMilestoneColor(milestone.status);
+    }
+    // Update the milestone
     const [result] = await db
       .update(milestones)
       .set(milestone)
       .where(eq(milestones.id, id))
       .returning();
-    
+
+    // If milestone update succeeded, recalculate project progress and status
+    if (result) {
+      // Get the milestone's projectId
+      const projectId = result.projectId;
+      // Fetch all milestones for the project
+      const allMilestones = await db.select().from(milestones).where(eq(milestones.projectId, projectId));
+      const total = allMilestones.length;
+      const completed = allMilestones.filter(m => m.status && m.status.toLowerCase() === 'completed').length;
+      const inProgress = allMilestones.filter(m => m.status && m.status.toLowerCase() === 'in progress').length;
+      const notStarted = allMilestones.filter(m => m.status && m.status.toLowerCase() === 'not started').length;
+      // Calculate progress
+      const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+      // Determine status
+      let status = 'Not Started';
+      if (completed === total && total > 0) {
+        status = 'Completed';
+      } else if (inProgress > 0 || completed > 0) {
+        status = 'In Progress';
+      }
+      // Update the project
+      await db.update(projects)
+        .set({ progress, status })
+        .where(eq(projects.id, projectId));
+    }
     return result;
+  }
+
+  getMilestoneColor(status: string) {
+    switch (status) {
+      case 'completed': return 'green';
+      case 'in_progress': return 'green';
+      case 'delayed': return 'orange';
+      case 'critical': return 'red';
+      case 'blocked': return 'red';
+      case 'not_started': default: return 'grey';
+    }
   }
   
   async deleteMilestone(id: number): Promise<boolean> {
@@ -204,6 +292,8 @@ export class DatabaseStorage implements IStorage {
         endDate: subtask.endDate || null,
         owner: subtask.owner || null,
         emailToSend: subtask.emailToSend || null,
+        assignedTo: subtask.assignedTo || null,
+        dueDate: subtask.dueDate || null,
         order: subtask.order
       }).returning();
       console.log("Subtask created successfully:", result);
@@ -242,20 +332,17 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createIssue(issue: InsertIssue): Promise<Issue> {
+    // Set default source if not provided
+    if (!issue.source) issue.source = 'manual';
     const [result] = await db.insert(issues).values(issue).returning();
     return result;
   }
-  
+
   async updateIssue(id: number, issue: Partial<Issue>): Promise<Issue | undefined> {
-    const [result] = await db
-      .update(issues)
-      .set(issue)
-      .where(eq(issues.id, id))
-      .returning();
-    
+    const [result] = await db.update(issues).set(issue).where(eq(issues.id, id)).returning();
     return result;
   }
-  
+
   async deleteIssue(id: number): Promise<boolean> {
     const result = await db.delete(issues).where(eq(issues.id, id));
     return !!result;
