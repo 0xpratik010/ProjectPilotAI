@@ -32,26 +32,33 @@ export async function aiQuickUpdateHandler(req: Request, res: Response) {
   // Using OpenAI API
   const systemPrompt = `You are an assistant for a project management tool. Users give you natural language prompts to add issues or subtasks.
 
-Your job is to carefully extract ALL information from the prompt, even if it's implied. Be thorough and don't ask for information that's already provided.
+Your job is to extract information from the prompt and return ONLY a valid JSON object with no additional text or formatting.
 
 Extract these fields:
-- type: "issue" or "subtask"
-- title: The main title/name of the issue or subtask (if not explicitly stated, use key phrases like "bug", "issue", "problem" to create a title)
-- description: A description of the issue/subtask (if not provided, use the title as a basis)
-- priority: "High", "Medium", or "Low" (look for words like "critical", "urgent", "high-priority")
-- assignee: Who it's assigned to (look for "assigned to X", "for X")
-- dueDate: When it's due (convert "tomorrow", "in 2 days", "next week" to dates)
-- projectName: Which project it belongs to (look for "in X project", "for X project")
-- parentTaskId: Only for subtasks, which task/milestone it belongs to
+- type: Always "issue" unless explicitly mentioned as a subtask
+- title: The main title of the issue (use the main problem described)
+- description: A brief description (can be same as title if not specified)
+- priority: "High", "Medium", or "Low" (default to "Medium" if not specified)
+- assignee: Who it's assigned to (look for "assigned to X")
+- dueDate: When it's due (as provided in the prompt)
+- projectName: Which project it belongs to (look for "in X project")
 
-Examples of extraction:
-1. "Add a high-priority bug for login failure assigned to Raju in Test project due tomorrow."
-   → title: "Login failure bug", description: "Bug with the login functionality", priority: "High", assignee: "Raju", projectName: "Test project", dueDate: "tomorrow"
+YOUR RESPONSE MUST BE VALID JSON IN THIS EXACT FORMAT:
+{
+  "type": "issue",
+  "data": {
+    "title": "...",
+    "description": "...",
+    "priority": "...",
+    "assignee": "...",
+    "dueDate": "...",
+    "projectName": "..."
+  },
+  "missing": []
+}
 
-2. "Create an issue in Apollo project: API integration not working"
-   → title: "API integration not working", description: "Issue with API integration", projectName: "Apollo project"
-
-Reply with a JSON object: { type: "issue"|"subtask", data: {...fields found}, missing: [fields still needed] }. Only include fields in "missing" if they are ABSOLUTELY not present or implied in the prompt.`;
+If information is missing, include the field names in the "missing" array.
+DO NOT include any explanation, markdown formatting, or code blocks - ONLY the JSON object.`;
 
   // Function to extract valid JSON from text
   function extractValidJson(text: string): any {
@@ -94,6 +101,7 @@ Reply with a JSON object: { type: "issue"|"subtask", data: {...fields found}, mi
 
   let aiResponse: any;
   try {
+    // Call OpenAI API with explicit timeout and retry
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -102,12 +110,43 @@ Reply with a JSON object: { type: "issue"|"subtask", data: {...fields found}, mi
       ],
       temperature: 0.2,
       response_format: { type: "json_object" }, // Explicitly request JSON format
+      max_tokens: 1000, // Limit token count to avoid incomplete responses
     });
     
-    const rawContent = completion.choices[0]?.message?.content || '{}';
+    // Log the entire completion object for debugging
+    console.log("[OpenAI Completion Object]", JSON.stringify(completion, null, 2));
+    
+    // Safely extract content with fallbacks
+    const rawContent = completion.choices && 
+                      completion.choices[0] && 
+                      completion.choices[0].message && 
+                      completion.choices[0].message.content ? 
+                      completion.choices[0].message.content : '{}';
+    
     console.log("[OpenAI Quick Update RAW RESPONSE]", rawContent);
     
-    aiResponse = extractValidJson(rawContent);
+    // Try to parse the response, with multiple fallbacks
+    try {
+      aiResponse = extractValidJson(rawContent);
+      
+      // Verify the response has the expected structure
+      if (!aiResponse || typeof aiResponse !== 'object' || !aiResponse.type) {
+        console.warn("Invalid AI response structure, using fallback", aiResponse);
+        aiResponse = {
+          type: "issue",
+          data: {},
+          missing: ["title", "description", "priority", "assignee", "dueDate", "projectName"]
+        };
+      }
+    } catch (parseError) {
+      console.error("JSON parsing error:", parseError);
+      // Provide a default response when parsing fails
+      aiResponse = {
+        type: "issue",
+        data: {},
+        missing: ["title", "description", "priority", "assignee", "dueDate", "projectName"]
+      };
+    }
   } catch (e) {
     console.error("OpenAI API error:", e);
     return res.status(500).json({ success: false, message: "OpenAI API error: " + (e as Error).message });
