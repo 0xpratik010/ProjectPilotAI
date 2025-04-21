@@ -91,23 +91,80 @@ Return a JSON object with:
       { role: "user", content: userPrompt }
     ];
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages,
-      response_format: { type: "json_object" },
-      temperature: 0.3
-    });
+    let result: any;
+    try {
+      // Use a more reliable model
+      const response = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages,
+        response_format: { type: "json_object" },
+        temperature: 0.3
+      });
 
-    const result = JSON.parse(response.choices[0].message.content || '{}');
+      // Extract and log the raw content
+      const rawContent = response.choices[0]?.message?.content || '{}';
+      console.log("[OpenAI RAW RESPONSE]", rawContent);
+
+      // Function to extract valid JSON from text
+      function extractValidJson(text: string): any {
+        // Try direct parsing first
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          // Remove code block markers and trim
+          let cleaned = text.replace(/```json|```/gi, '').trim();
+          try {
+            return JSON.parse(cleaned);
+          } catch (e) {
+            // Find the first { and last } in the string
+            const firstBrace = cleaned.indexOf('{');
+            const lastBrace = cleaned.lastIndexOf('}');
+            
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+              try {
+                return JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
+              } catch (e) {
+                // Last resort: manually build a minimal valid JSON
+                console.error("Failed to parse JSON after multiple attempts. Raw content:", text);
+                return { 
+                  summary: "Failed to parse AI response",
+                  affectedMilestones: [],
+                  affectedSubtasks: [],
+                  issues: [],
+                  statusChanges: [],
+                  delayNotifications: []
+                };
+              }
+            } else {
+              console.error("No JSON object found in response. Raw content:", text);
+              return { 
+                summary: "Failed to parse AI response",
+                affectedMilestones: [],
+                affectedSubtasks: [],
+                issues: [],
+                statusChanges: [],
+                delayNotifications: []
+              };
+            }
+          }
+        }
+      }
+
+      // Extract valid JSON from the response
+      result = extractValidJson(rawContent);
+    } catch (error) {
+      console.error("OpenAI API error:", error);
+      throw new Error("OpenAI API error: " + (error as Error).message);
+    }
     
     // Validate and clean the response
     return {
-      affectedMilestones: validateMilestones(result.affectedMilestones || [], milestones),
-      affectedSubtasks: validateSubtasks(result.affectedSubtasks || [], subtasks),
-      issues: validateIssues(result.issues || []),
-      statusChanges: validateStatusChanges(result.statusChanges || []),
-      delayNotifications: validateDelays(result.delayNotifications || []),
-      summary: result.summary || "Update processed successfully."
+      affectedMilestones: validateMilestones(result?.affectedMilestones || [], milestones),
+      affectedSubtasks: validateSubtasks(result?.affectedSubtasks || [], subtasks),
+      issues: validateIssues(result?.issues || []),
+      statusChanges: validateStatusChanges(result?.statusChanges || []),
+      delayNotifications: validateDelays(result?.delayNotifications || []),
+      summary: result?.summary || "Update processed successfully."
     };
   } catch (error) {
     console.error("Error processing natural language update:", error);
