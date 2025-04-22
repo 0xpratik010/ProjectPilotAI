@@ -1,0 +1,12 @@
+{
+  "name": "netlify-functions",
+  "version": "1.0.0",
+  "description": "Netlify Functions for ProjectPilotAI",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.21.2",
+    "serverless-http": "^3.2.0",
+    "dotenv": "^16.5.0",
+    "drizzle-orm": "^0.39.1"
+  }
+}
