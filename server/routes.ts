@@ -7,12 +7,16 @@ import { insertProjectSchema, insertMilestoneSchema, insertSubtaskSchema, insert
 import { z } from "zod";
 import { PromptHandler } from "./services/prompt-handler";
 import { aiQuickUpdateHandler } from "./aiQuickUpdate";
+import { openaiTaskHandler } from "./openaiTaskHandler";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use(express.json());
 
   // AI Quick Update
   app.post("/api/ai/quick-update", aiQuickUpdateHandler);
+
+  // OpenAI Natural Language Task Creation
+  app.post("/api/ai/parse-task", openaiTaskHandler);
 
   // Projects
   app.get("/api/projects", async (req: Request, res: Response) => {

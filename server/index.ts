@@ -251,7 +251,62 @@ async function seedProjectsIfNeeded() {
         ('Atlas Upgrade', 'Completed', 100, CURRENT_DATE - INTERVAL '120 days', CURRENT_DATE - INTERVAL '10 days', 'Vera PM', 'Will DL', 'Xena BA', 'Yuri TL', 'Zane UI', 'Amy DB', 'Ben QA', 'vera@example.com', 'Deployment'),
         ('Pegasus Revamp', 'Delayed', 60, CURRENT_DATE - INTERVAL '45 days', CURRENT_DATE + INTERVAL '45 days', 'Cleo PM', 'Duke DL', 'Elle BA', 'Finn TL', 'Gina UI', 'Hugo DB', 'Iris QA', 'cleo@example.com', 'Testing')
     `);
-    log('Seeded 5 sample projects.');
+    // Fetch all projects
+    const projectsRes = await db.execute(sql`SELECT id, name FROM projects;`);
+    const projects = projectsRes.rows;
+    // Define milestones and subtasks for each project
+    const milestonesData = [
+      {
+        name: 'Requirement Gathering',
+        description: 'Gather all requirements',
+        owner: 'Carol BA',
+        subtasks: [
+          { name: 'Interview Stakeholders', owner: 'Carol BA' },
+          { name: 'Document Requirements', owner: 'Carol BA' }
+        ]
+      },
+      {
+        name: 'Development',
+        description: 'Development phase',
+        owner: 'Dave TL',
+        subtasks: [
+          { name: 'Setup Repo', owner: 'Dave TL' },
+          { name: 'Implement Features', owner: 'Bob DL' },
+          { name: 'Code Review', owner: 'Alice PM' }
+        ]
+      },
+      {
+        name: 'Testing',
+        description: 'Testing and QA',
+        owner: 'Grace QA',
+        subtasks: [
+          { name: 'Write Test Cases', owner: 'Grace QA' },
+          { name: 'Perform Testing', owner: 'Grace QA' }
+        ]
+      }
+    ];
+    // For each project, insert milestones and subtasks
+    for (const project of projects) {
+      let milestoneOrder = 1;
+      for (const milestone of milestonesData) {
+        const milestoneRes = await db.execute(sql`
+          INSERT INTO milestones (project_id, name, description, status, owner, "order", duration_in_weeks)
+          VALUES (${project.id}, ${milestone.name}, ${milestone.description}, 'Not Started', ${milestone.owner}, ${milestoneOrder}, 2)
+          RETURNING id
+        `);
+        const milestoneId = milestoneRes.rows[0].id;
+        let subtaskOrder = 1;
+        for (const subtask of milestone.subtasks) {
+          await db.execute(sql`
+            INSERT INTO subtasks (milestone_id, name, description, status, owner, "order")
+            VALUES (${milestoneId}, ${subtask.name}, '', 'Not Started', ${subtask.owner}, ${subtaskOrder})
+          `);
+          subtaskOrder++;
+        }
+        milestoneOrder++;
+      }
+    }
+    log('Seeded 5 sample projects with milestones and subtasks.');
   } else {
     log('Projects table already has data, skipping seed.');
   }
