@@ -121,7 +121,7 @@ const Issues = ({ projectId, issues, isLoading }: IssuesProps) => {
     );
   }
   
-  const openIssues = issues.filter(issue => issue.status === "Open");
+  const openIssues = issues.filter(issue => issue.status?.toLowerCase() === "open");
   
   return (
     <Card>

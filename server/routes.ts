@@ -8,6 +8,7 @@ import { z } from "zod";
 import { PromptHandler } from "./services/prompt-handler";
 import { aiQuickUpdateHandler } from "./aiQuickUpdate";
 import { openaiTaskHandler } from "./openaiTaskHandler";
+import { aiIntentHandler } from "./aiIntentHandler";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use(express.json());
@@ -17,6 +18,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // OpenAI Natural Language Task Creation
   app.post("/api/ai/parse-task", openaiTaskHandler);
+  
+  // AI Intent Detection for creating issues and subtasks
+  app.post("/api/ai-intent", aiIntentHandler);
 
   // Projects
   app.get("/api/projects", async (req: Request, res: Response) => {

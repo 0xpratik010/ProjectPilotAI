@@ -29,7 +29,10 @@ export async function aiQuickUpdateHandler(req: Request, res: Response) {
   // Get or initialize session data
   let session = sessionState[sessionId] || { type: null, data: {} };
 
-  // Using OpenAI API
+  // Track last missing fields for context-aware mapping
+  if (!session.lastMissing) session.lastMissing = [];
+
+  // Enhanced system prompt for context-aware mapping
   const systemPrompt = `You are an assistant for a project management tool. Users give you natural language prompts to add issues or subtasks.
 
 Your job is to extract information from the prompt and return ONLY a valid JSON object with no additional text or formatting.
@@ -42,6 +45,8 @@ Extract these fields:
 - assignee: Who it's assigned to (look for "assigned to X")
 - dueDate: When it's due (as provided in the prompt)
 - projectName: Which project it belongs to (look for "in X project")
+
+If you are given a short or comma-separated response to a previous follow-up question (e.g., "Please provide: assignee, projectName"), map the answers to the missing fields in the order they were requested. For example, if the user replies "Steve W and Atlas Upgrade" or "Steve W, Atlas Upgrade", assign "Steve W" to assignee and "Atlas Upgrade" to projectName. Do NOT assign these to title or other fields.
 
 YOUR RESPONSE MUST BE VALID JSON IN THIS EXACT FORMAT:
 {
@@ -59,6 +64,17 @@ YOUR RESPONSE MUST BE VALID JSON IN THIS EXACT FORMAT:
 
 If information is missing, include the field names in the "missing" array.
 DO NOT include any explanation, markdown formatting, or code blocks - ONLY the JSON object.`;
+
+  // If this is a follow-up to a missing fields prompt, map short answers to missing fields
+  if (session.lastMissing.length > 0 && prompt.split(/[ ,&]+/).length <= session.lastMissing.length) {
+    // Try to split answers by common delimiters
+    let answers = prompt.split(/,| and | & |\band\b|\s{2,}/i).map(s => s.trim()).filter(Boolean);
+    if (answers.length === session.lastMissing.length) {
+      for (let i = 0; i < answers.length; ++i) {
+        session.data[session.lastMissing[i]] = answers[i];
+      }
+    }
+  }
 
   // Function to extract valid JSON from text
   function extractValidJson(text: string): any {
@@ -161,7 +177,33 @@ DO NOT include any explanation, markdown formatting, or code blocks - ONLY the J
   const aiData = aiResponse.data && typeof aiResponse.data === 'object' ? aiResponse.data : {};
   session.type = aiType;
   session.data = { ...session.data, ...aiData };
-  const missing = Array.isArray(aiResponse.missing) ? aiResponse.missing : getMissingFields(session.type, session.data);
+
+  // Alias support: always keep both forms for all fields
+  if (!session.data.title && session.data.issue_title) session.data.title = session.data.issue_title;
+  if (!session.data.issue_title && session.data.title) session.data.issue_title = session.data.title;
+  if (!session.data.projectName && session.data.project) session.data.projectName = session.data.project;
+  if (!session.data.project && session.data.projectName) session.data.project = session.data.projectName;
+  if (!session.data.dueDate && session.data.due_date) session.data.dueDate = session.data.due_date;
+  if (!session.data.due_date && session.data.dueDate) session.data.due_date = session.data.dueDate;
+
+  // Defensive: treat any alias as satisfying the required field
+  function hasField(data: Record<string, any>, field: string): boolean {
+    const aliases: Record<string, string[]> = {
+      title: ["title", "issue_title"],
+      projectName: ["projectName", "project"],
+      dueDate: ["dueDate", "due_date"],
+      assignee: ["assignee"],
+      description: ["description"],
+      priority: ["priority"],
+      parentTaskId: ["parentTaskId"]
+    };
+    return (aliases[field] || [field]).some(f => !!data[f]);
+  }
+  const missing = REQUIRED_FIELDS[session.type]?.filter((field: string) => !hasField(session.data, field)) || [];
+
+  // Defensive logging
+  console.log("[QuickUpdate] Session data after alias merge:", session.data);
+  console.log("[QuickUpdate] Missing fields:", missing);
 
   if (!session.type || !REQUIRED_FIELDS[session.type]) {
     return res.status(400).json({ success: false, message: "Could not determine if this is an issue or subtask. Please clarify your intent." });
